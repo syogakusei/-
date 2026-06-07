@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>今日何食べる？</title>
+<style>
+  :root{
+    --bg:#fff7f0;
+    --card:#ffffff;
+    --primary:#ff6b35;
+    --primary-dark:#e8521c;
+    --accent:#ffb627;
+    --text:#33281f;
+    --muted:#998d80;
+    --line:#f0e3d6;
+    --good:#37b24d;
+    --bad:#e03131;
+    --shadow:0 4px 16px rgba(255,107,53,.12);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    max-width:480px;
+    margin:0 auto;
+    min-height:100vh;
+    position:relative;
+    padding-bottom:72px;
+  }
+  /* ヘッダー */
+  header{
+    background:linear-gradient(135deg,var(--primary),var(--accent));
+    color:#fff;
+    padding:16px 18px;
+    position:sticky;top:0;z-index:50;
+    box-shadow:0 2px 10px rgba(0,0,0,.1);
+  }
+  header h1{margin:0;font-size:20px;display:flex;align-items:center;gap:8px}
+  header .sub{font-size:12px;opacity:.9;margin-top:2px}
+  /* ビュー */
+  .view{display:none;padding:16px;animation:fade .25s ease}
+  .view.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  h2.section{font-size:17px;margin:4px 0 14px;display:flex;align-items:center;gap:7px}
+  .card{
+    background:var(--card);border-radius:16px;padding:16px;margin-bottom:14px;
+    box-shadow:var(--shadow);border:1px solid var(--line);
+  }
+  label.fld{display:block;font-size:13px;font-weight:bold;margin:12px 0 5px;color:var(--text)}
+  input[type=text],input[type=number],select,textarea{
+    width:100%;padding:11px 12px;border:1.5px solid var(--line);border-radius:11px;
+    font-size:15px;font-family:inherit;background:#fffdfb;color:var(--text);
+  }
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary)}
+  textarea{resize:vertical;min-height:60px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:5px}
+  .chip{
+    padding:8px 14px;border:1.5px solid var(--line);border-radius:20px;font-size:13px;
+    background:#fff;cursor:pointer;user-select:none;transition:.15s;
+  }
+  .chip.on{background:var(--primary);color:#fff;border-color:var(--primary)}
+  .btn{
+    display:block;width:100%;padding:14px;border:none;border-radius:13px;
+    background:var(--primary);color:#fff;font-size:16px;font-weight:bold;cursor:pointer;
+    box-shadow:var(--shadow);transition:.15s;
+  }
+  .btn:active{transform:scale(.98)}
+  .btn.sec{background:#fff;color:var(--primary);border:1.5px solid var(--primary);box-shadow:none}
+  .btn.ghost{background:#f4ebe2;color:var(--text);box-shadow:none}
+  .btn.sm{padding:9px;font-size:13px;border-radius:10px;width:auto;display:inline-block}
+  .row{display:flex;gap:10px}
+  .row>*{flex:1}
+  /* 店カード */
+  .store{
+    background:var(--card);border-radius:14px;padding:14px;margin-bottom:12px;
+    box-shadow:var(--shadow);border:1px solid var(--line);
+  }
+  .store .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+  .store .name{font-size:16px;font-weight:bold}
+  .store .meta{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.7}
+  .tag{display:inline-block;background:#fff0e6;color:var(--primary-dark);font-size:11px;
+    padding:2px 9px;border-radius:10px;margin:2px 4px 2px 0}
+  .tag.g{background:#e7f6ea;color:var(--good)}
+  .tag.f{background:#eef2ff;color:#4263eb}
+  .visited{font-size:11px;color:var(--good);font-weight:bold}
+  .stars{color:var(--accent);font-size:14px;letter-spacing:1px}
+  .empty{text-align:center;color:var(--muted);padding:40px 16px;font-size:14px;line-height:1.8}
+  .empty .big{font-size:42px;display:block;margin-bottom:8px}
+  /* ボトムナビ */
+  nav.tabbar{
+    position:fixed;bottom:0;left:50%;transform:translateX(-50%);
+    width:100%;max-width:480px;background:#fff;display:flex;
+    border-top:1px solid var(--line);box-shadow:0 -2px 12px rgba(0,0,0,.06);z-index:60;
+  }
+  nav.tabbar button{
+    flex:1;background:none;border:none;padding:8px 2px 9px;cursor:pointer;
+    color:var(--muted);font-size:10px;display:flex;flex-direction:column;align-items:center;gap:3px;
+  }
+  nav.tabbar button .ic{font-size:21px;line-height:1}
+  nav.tabbar button.on{color:var(--primary)}
+  /* アキネーター */
+  .aki-stage{text-align:center;padding:10px 0}
+  .aki-face{font-size:72px;margin:6px 0 2px;animation:bob 2s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+  .aki-bubble{
+    background:#fff;border:2px solid var(--primary);border-radius:16px;padding:14px 16px;
+    font-size:15px;margin:10px 4px;position:relative;box-shadow:var(--shadow);
+  }
+  .aki-bubble:after{content:"";position:absolute;top:-11px;left:50%;transform:translateX(-50%);
+    border:10px solid transparent;border-bottom-color:var(--primary)}
+  .aki-q{font-size:13px;color:var(--muted);margin-bottom:4px}
+  .progress{height:6px;background:var(--line);border-radius:6px;overflow:hidden;margin:14px 0 4px}
+  .progress>i{display:block;height:100%;background:var(--primary);transition:.3s}
+  .opt{
+    display:block;width:100%;padding:14px;margin-top:10px;border:1.5px solid var(--line);
+    border-radius:13px;background:#fff;font-size:15px;cursor:pointer;text-align:left;transition:.15s;
+  }
+  .opt:active{transform:scale(.98)}
+  .opt:hover{border-color:var(--primary)}
+  /* 提案結果 */
+  .result-card{text-align:center;padding:22px 16px}
+  .result-card .rname{font-size:24px;font-weight:bold;margin:8px 0}
+  .result-emoji{font-size:60px}
+  /* ランキング */
+  .rank-item{display:flex;align-items:center;gap:12px;padding:11px 4px;border-bottom:1px solid var(--line)}
+  .rank-item:last-child{border-bottom:none}
+  .rank-no{font-size:20px;font-weight:bold;width:34px;text-align:center}
+  .rank-no.t1{color:#f59f00}.rank-no.t2{color:#adb5bd}.rank-no.t3{color:#cd853f}
+  .rank-main{flex:1}
+  .rank-main .n{font-weight:bold;font-size:15px}
+  .rank-main .d{font-size:12px;color:var(--muted)}
+  .rank-val{font-weight:bold;color:var(--primary)}
+  /* 称号 */
+  .badge{
+    display:flex;align-items:center;gap:14px;padding:14px;border-radius:14px;margin-bottom:12px;
+    background:linear-gradient(135deg,#fff,#fff7ef);border:1.5px solid var(--accent);box-shadow:var(--shadow);
+  }
+  .badge.locked{filter:grayscale(1);opacity:.55;border-color:var(--line);background:#faf6f2}
+  .badge .bi{font-size:38px}
+  .badge .bt{font-weight:bold;font-size:16px}
+  .badge .bd{font-size:12px;color:var(--muted);margin-top:2px}
+  /* 友人 / DM */
+  .friend{display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--line)}
+  .avatar{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--accent));
+    color:#fff;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:18px;flex-shrink:0}
+  .dm{background:#fff;border-radius:14px;padding:13px;margin-bottom:11px;box-shadow:var(--shadow);border:1px solid var(--line)}
+  .dm .from{font-size:12px;color:var(--muted);margin-bottom:5px}
+  .seg{display:flex;background:#f4ebe2;border-radius:11px;padding:4px;margin-bottom:14px;gap:4px}
+  .seg button{flex:1;border:none;background:none;padding:9px;border-radius:8px;font-size:13px;font-weight:bold;color:var(--muted);cursor:pointer}
+  .seg button.on{background:#fff;color:var(--primary);box-shadow:0 1px 4px rgba(0,0,0,.08)}
+  /* モーダル */
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;display:none;align-items:flex-end;justify-content:center}
+  .modal-bg.show{display:flex}
+  .modal{background:#fff;width:100%;max-width:480px;border-radius:20px 20px 0 0;padding:18px;max-height:88vh;overflow:auto;animation:up .25s ease}
+  @keyframes up{from{transform:translateY(40px);opacity:.5}to{transform:none;opacity:1}}
+  .modal h3{margin:0 0 6px;font-size:18px}
+  .x{float:right;font-size:24px;color:var(--muted);cursor:pointer;line-height:1}
+  /* トースト */
+  #toast{position:fixed;bottom:84px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:#33281f;color:#fff;padding:11px 20px;border-radius:24px;font-size:14px;z-index:200;
+    opacity:0;transition:.3s;pointer-events:none;max-width:90%;text-align:center}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .hint{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.6}
+  .pill{display:inline-block;background:var(--accent);color:#fff;font-size:11px;font-weight:bold;padding:2px 8px;border-radius:10px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🍴 今日何食べる？</h1>
+  <div class="sub">気分で選ぶ、あなたとみんなのお気に入り</div>
+</header>
+
+<!-- ========== 提案（ホーム / アキネーター） ========== -->
+<section id="v-home" class="view active">
+  <div id="akiArea"></div>
+</section>
+
+<!-- ========== お店 ========== -->
+<section id="v-stores" class="view">
+  <h2 class="section">🏠 マイ登録店</h2>
+  <button class="btn" onclick="openStoreModal()">＋ お店を登録する</button>
+  <div style="height:14px"></div>
+  <div id="storeList"></div>
+</section>
+
+<!-- ========== ランキング ========== -->
+<section id="v-rank" class="view">
+  <h2 class="section">🏆 ランキング</h2>
+  <div class="seg">
+    <button id="rkPerson" class="on" onclick="switchRank('person')">👤 個人</button>
+    <button id="rkStore" onclick="switchRank('store')">🍜 お店</button>
+  </div>
+  <div class="hint" style="margin-bottom:10px">あなた＋連携中の友人コミュニティ内の今月の集計です</div>
+  <div class="card"><div id="rankList"></div></div>
+</section>
+
+<!-- ========== 友人 / 飯テロ ========== -->
+<section id="v-friends" class="view">
+  <h2 class="section">👥 友人とつながる</h2>
+  <div class="seg">
+    <button id="frTab1" class="on" onclick="switchFriendTab('friends')">連携友人</button>
+    <button id="frTab2" onclick="switchFriendTab('dm')">飯テロ受信箱</button>
+  </div>
+  <div id="friendsPane">
+    <div class="card">
+      <label class="fld">友人IDを入力して連携</label>
+      <div class="row">
+        <input type="text" id="friendIdInput" placeholder="例: tomo123">
+        <button class="btn sm" style="flex:0 0 auto;padding:11px 16px" onclick="addFriend()">連携</button>
+      </div>
+      <div class="hint">友人の訪問済み店が、提案に「友人おすすめ」として混ざります。お試し用に好きなIDで連携できます。</div>
+    </div>
+    <div id="friendList"></div>
+  </div>
+  <div id="dmPane" style="display:none">
+    <div id="dmList"></div>
+  </div>
+</section>
+
+<!-- ========== 称号 ========== -->
+<section id="v-badge" class="view">
+  <h2 class="section">🎖️ あなたの称号</h2>
+  <div class="card" style="text-align:center">
+    <div style="font-size:13px;color:var(--muted)">訪問記録から自動で傾向を分析</div>
+    <div id="topTitle" style="font-size:22px;font-weight:bold;margin-top:6px;color:var(--primary)">―</div>
+  </div>
+  <div id="badgeList"></div>
+</section>
+
+<!-- ========== ボトムナビ ========== -->
+<nav class="tabbar">
+  <button id="t-home" class="on" onclick="nav('home')"><span class="ic">🎯</span>提案</button>
+  <button id="t-stores" onclick="nav('stores')"><span class="ic">🏠</span>お店</button>
+  <button id="t-rank" onclick="nav('rank')"><span class="ic">🏆</span>ランキング</button>
+  <button id="t-friends" onclick="nav('friends')"><span class="ic">👥</span>友人</button>
+  <button id="t-badge" onclick="nav('badge')"><span class="ic">🎖️</span>称号</button>
+</nav>
+
+<!-- ========== 店 登録/編集 モーダル ========== -->
+<div class="modal-bg" id="storeModal">
+  <div class="modal">
+    <span class="x" onclick="closeModal('storeModal')">×</span>
+    <h3 id="storeModalTitle">お店を登録</h3>
+    <input type="hidden" id="editId">
+    <label class="fld">店名 <span style="color:var(--primary)">*</span></label>
+    <input type="text" id="f_name" placeholder="例: 名物カレー食堂">
+    <label class="fld">ジャンル</label>
+    <select id="f_genre">
+      <option>和食</option><option>洋食</option><option>中華</option><option>ラーメン</option>
+      <option>居酒屋</option><option>カフェ</option><option>焼肉</option><option>ファストフード</option>
+      <option>エスニック</option><option>スイーツ</option><option>その他</option>
+    </select>
+    <label class="fld">予算（1人あたり）</label>
+    <select id="f_price"></select>
+    <label class="fld">合う気分（複数可）</label>
+    <div class="chips" id="f_moods"></div>
+    <label class="fld">合う相手（複数可）</label>
+    <div class="chips" id="f_companions"></div>
+    <label class="fld">客層・メモ</label>
+    <textarea id="f_memo" placeholder="例: 学生が多くてにぎやか。デートには不向き。"></textarea>
+    <div style="height:16px"></div>
+    <button class="btn" onclick="saveStore()">保存する</button>
+    <div style="height:8px"></div>
+    <button class="btn ghost" id="deleteBtn" style="display:none" onclick="deleteStore()">この店を削除</button>
+  </div>
+</div>
+
+<!-- ========== 訪問記録 モーダル ========== -->
+<div class="modal-bg" id="visitModal">
+  <div class="modal">
+    <span class="x" onclick="closeModal('visitModal')">×</span>
+    <h3>訪問記録をつける</h3>
+    <div id="visitStoreName" style="font-weight:bold;font-size:16px;margin-bottom:6px"></div>
+    <input type="hidden" id="visitId">
+    <label class="fld">おすすめ度</label>
+    <div id="ratingPick" style="font-size:34px;letter-spacing:6px;cursor:pointer;user-select:none"></div>
+    <label class="fld">使った金額（円）</label>
+    <input type="number" id="v_spent" placeholder="例: 1500" min="0">
+    <label class="fld">メモ</label>
+    <textarea id="v_memo" placeholder="例: 大盛り無料が最高だった！"></textarea>
+    <div style="height:16px"></div>
+    <button class="btn" onclick="saveVisit()">記録する（友人へのおすすめ対象に）</button>
+  </div>
+</div>
+
+<!-- ========== 飯テロ送信 モーダル ========== -->
+<div class="modal-bg" id="sendModal">
+  <div class="modal">
+    <span class="x" onclick="closeModal('sendModal')">×</span>
+    <h3>🔥 飯テロを送りつける</h3>
+    <div id="sendStoreName" style="font-weight:bold;margin-bottom:10px"></div>
+    <input type="hidden" id="sendStoreId">
+    <label class="fld">送る相手を選ぶ</label>
+    <div id="sendFriendList"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ============================================================
+   今日何食べる？ — データ層
+   HTML/CSS/JSのみ・サーバー不要（localStorageに保存）
+   ============================================================ */
+const MOODS = ["お腹いっぱい","デート","飲み会","ご褒美"];
+const COMPANIONS = ["友人","家族","恋人","恋人候補"];
+const PRICES = ["～1,000円","1,000～2,000円","2,000～3,000円","3,000～4,000円","4,000～5,000円","5,000～6,000円"];
+const KEY = "konnani_tabe_v1";
+
+let DB = load();
+
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return seed();
+}
+function save(){ localStorage.setItem(KEY, JSON.stringify(DB)); }
+
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+
+/* 初回デモデータ */
+function seed(){
+  const me_stores = [
+    {id:uid(),name:"名物からあげ食堂",genre:"和食",price:"～1,000円",moods:["お腹いっぱい"],companions:["友人","家族"],memo:"ボリューム満点。学生でにぎやか。",visited:true,rating:5,spent:980,visitCount:4},
+    {id:uid(),name:"夜景イタリアン Luna",genre:"洋食",price:"4,000～5,000円",moods:["デート","ご褒美"],companions:["恋人","恋人候補"],memo:"雰囲気抜群。記念日に。",visited:true,rating:4,spent:4500,visitCount:1},
+    {id:uid(),name:"赤提灯 とり吉",genre:"居酒屋",price:"3,000～4,000円",moods:["飲み会"],companions:["友人"],memo:"飲み放題あり。大人数OK。",visited:false,rating:0,spent:0,visitCount:0},
+    {id:uid(),name:"癒しカフェ もくれん",genre:"カフェ",price:"1,000～2,000円",moods:["デート","ご褒美"],companions:["恋人候補","友人"],memo:"静かでチルできる。",visited:true,rating:4,spent:1300,visitCount:3},
+  ];
+  return {
+    me:{name:"あなた"},
+    stores: me_stores,
+    friends:[
+      {id:"yuta01",name:"ゆうた",stores:[
+        {name:"がっつり二郎系 武蔵",genre:"ラーメン",price:"1,000～2,000円",moods:["お腹いっぱい"],companions:["友人"],rating:5,memo:"麺マシでも完食できる神店"},
+        {name:"隠れ家バル ソル",genre:"洋食",price:"3,000～4,000円",moods:["デート","飲み会"],companions:["恋人","友人"],rating:4,memo:"ワインが豊富"}
+      ],spent:8200,visits:6},
+      {id:"mai02",name:"まい",stores:[
+        {name:"スイーツ天国 ぷりん",genre:"スイーツ",price:"1,000～2,000円",moods:["ご褒美","デート"],companions:["友人","恋人候補"],rating:5,memo:"パフェが映える"}
+      ],spent:5400,visits:4},
+    ],
+    dms:[
+      {id:uid(),fromName:"ゆうた",storeName:"がっつり二郎系 武蔵",genre:"ラーメン",msg:"これ食べに行こうぜ🍜",reaction:null}
+    ],
+    titlesSeen:[]
+  };
+}
+
+/* ============================================================
+   ナビゲーション
+   ============================================================ */
+const VIEWS = ["home","stores","rank","friends","badge"];
+function nav(v){
+  VIEWS.forEach(x=>{
+    document.getElementById("v-"+x).classList.toggle("active", x===v);
+    document.getElementById("t-"+x).classList.toggle("on", x===v);
+  });
+  if(v==="home") renderAki();
+  if(v==="stores") renderStores();
+  if(v==="rank") renderRank();
+  if(v==="friends") renderFriends();
+  if(v==="badge") renderBadge();
+  window.scrollTo(0,0);
+}
+
+function toast(msg){
+  const t=document.getElementById("toast");
+  t.textContent=msg; t.classList.add("show");
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("show"),2200);
+}
+function openModal(id){ document.getElementById(id).classList.add("show"); }
+function closeModal(id){ document.getElementById(id).classList.remove("show"); }
+
+/* ============================================================
+   お店 登録・一覧（CRUD）
+   ============================================================ */
+function initPriceSelect(){
+  const s=document.getElementById("f_price");
+  s.innerHTML = PRICES.map(p=>`<option>${p}</option>`).join("");
+}
+function buildChips(containerId, list){
+  document.getElementById(containerId).innerHTML =
+    list.map(x=>`<span class="chip" data-v="${x}" onclick="this.classList.toggle('on')">${x}</span>`).join("");
+}
+function getChips(containerId){
+  return [...document.querySelectorAll(`#${containerId} .chip.on`)].map(c=>c.dataset.v);
+}
+function setChips(containerId, vals){
+  document.querySelectorAll(`#${containerId} .chip`).forEach(c=>{
+    c.classList.toggle("on", (vals||[]).includes(c.dataset.v));
+  });
+}
+
+function openStoreModal(store){
+  initPriceSelect();
+  buildChips("f_moods", MOODS);
+  buildChips("f_companions", COMPANIONS);
+  if(store){
+    document.getElementById("storeModalTitle").textContent="お店を編集";
+    document.getElementById("editId").value=store.id;
+    document.getElementById("f_name").value=store.name;
+    document.getElementById("f_genre").value=store.genre;
+    document.getElementById("f_price").value=store.price;
+    setChips("f_moods", store.moods);
+    setChips("f_companions", store.companions);
+    document.getElementById("f_memo").value=store.memo||"";
+    document.getElementById("deleteBtn").style.display="block";
+  }else{
+    document.getElementById("storeModalTitle").textContent="お店を登録";
+    document.getElementById("editId").value="";
+    document.getElementById("f_name").value="";
+    document.getElementById("f_genre").selectedIndex=0;
+    document.getElementById("f_price").selectedIndex=0;
+    document.getElementById("f_memo").value="";
+    document.getElementById("deleteBtn").style.display="none";
+  }
+  openModal("storeModal");
+}
+
+function saveStore(){
+  const name=document.getElementById("f_name").value.trim();
+  if(!name){ toast("店名を入力してください"); return; }
+  const id=document.getElementById("editId").value;
+  const data={
+    name,
+    genre:document.getElementById("f_genre").value,
+    price:document.getElementById("f_price").value,
+    moods:getChips("f_moods"),
+    companions:getChips("f_companions"),
+    memo:document.getElementById("f_memo").value.trim(),
+  };
+  if(id){
+    const s=DB.stores.find(s=>s.id===id);
+    Object.assign(s,data);
+    toast("更新しました ✏️");
+  }else{
+    DB.stores.push({id:uid(),...data,visited:false,rating:0,spent:0,visitCount:0});
+    toast("登録しました 🎉");
+  }
+  save(); closeModal("storeModal"); renderStores();
+}
+
+function deleteStore(){
+  const id=document.getElementById("editId").value;
+  if(!id) return;
+  if(!confirm("この店を削除しますか？")) return;
+  DB.stores=DB.stores.filter(s=>s.id!==id);
+  save(); closeModal("storeModal"); renderStores(); toast("削除しました 🗑️");
+}
+
+function renderStores(){
+  const el=document.getElementById("storeList");
+  if(DB.stores.length===0){
+    el.innerHTML=`<div class="empty"><span class="big">🍽️</span>まだお店がありません。<br>お気に入りの一軒を登録してみましょう！</div>`;
+    return;
+  }
+  el.innerHTML = DB.stores.map(s=>storeCard(s)).join("");
+}
+
+function storeCard(s){
+  const stars = s.visited && s.rating ? `<div class="stars">${"★".repeat(s.rating)}${"☆".repeat(5-s.rating)}</div>` : "";
+  return `<div class="store">
+    <div class="top">
+      <div>
+        <div class="name">${esc(s.name)}</div>
+        <div class="meta">🍱 ${s.genre} ・ 💰 ${s.price}${s.memo?`<br>📝 ${esc(s.memo)}`:""}</div>
+      </div>
+      <div style="text-align:right">${s.visited?'<div class="visited">✓ 訪問済</div>':''}${stars}</div>
+    </div>
+    <div style="margin-top:8px">
+      ${(s.moods||[]).map(m=>`<span class="tag">${m}</span>`).join("")}
+      ${(s.companions||[]).map(c=>`<span class="tag f">${c}</span>`).join("")}
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn sm sec" onclick="openVisitModal('${s.id}')">📝 訪問記録</button>
+      <button class="btn sm ghost" onclick="openSendModal('${s.id}')">🔥 飯テロ</button>
+      <button class="btn sm ghost" onclick="editStore('${s.id}')">編集</button>
+    </div>
+  </div>`;
+}
+function editStore(id){ openStoreModal(DB.stores.find(s=>s.id===id)); }
+
+/* ============================================================
+   訪問記録
+   ============================================================ */
+let pickRating=0;
+function openVisitModal(id){
+  const s=DB.stores.find(s=>s.id===id);
+  document.getElementById("visitId").value=id;
+  document.getElementById("visitStoreName").textContent=s.name;
+  document.getElementById("v_spent").value=s.spent||"";
+  document.getElementById("v_memo").value=s.memo||"";
+  pickRating=s.rating||0;
+  renderRatingPick();
+  openModal("visitModal");
+}
+function renderRatingPick(){
+  const el=document.getElementById("ratingPick");
+  el.innerHTML="";
+  for(let i=1;i<=5;i++){
+    const star=document.createElement("span");
+    star.textContent=i<=pickRating?"★":"☆";
+    star.style.color="#ffb627";
+    star.onclick=()=>{pickRating=i;renderRatingPick();};
+    el.appendChild(star);
+  }
+}
+function saveVisit(){
+  const id=document.getElementById("visitId").value;
+  const s=DB.stores.find(s=>s.id===id);
+  s.visited=true;
+  s.rating=pickRating||s.rating||3;
+  s.spent=parseInt(document.getElementById("v_spent").value)||s.spent||0;
+  s.memo=document.getElementById("v_memo").value.trim();
+  s.visitCount=(s.visitCount||0)+1;
+  save(); closeModal("visitModal"); renderStores();
+  toast("訪問を記録しました ✅ 友人へのおすすめ対象に！");
+}
+
+/* ============================================================
+   提案（アキネーター風）
+   ============================================================ */
+let aki = { step:0, answers:{} };
+const AKI_STEPS = [
+  {key:"mood", q:"質問 1 / 4", text:"今日はどんな気分？", face:"🤔", opts:MOODS},
+  {key:"price", q:"質問 2 / 4", text:"予算はどれくらい？", face:"💰", opts:PRICES},
+  {key:"companion", q:"質問 3 / 4", text:"今日は誰と行く？", face:"👀", opts:COMPANIONS},
+  {key:"count", q:"質問 4 / 4", text:"何人で行く？", face:"🙌", opts:["1人","2人","3〜4人","5人以上"]},
+];
+
+function renderAki(){
+  aki={step:0, answers:{}};
+  drawAkiStep();
+}
+function drawAkiStep(){
+  const area=document.getElementById("akiArea");
+  const st=AKI_STEPS[aki.step];
+  const pct = (aki.step/AKI_STEPS.length)*100;
+  area.innerHTML = `
+    <div class="card aki-stage">
+      <div class="aki-face">${st.face}</div>
+      <div class="aki-bubble">
+        <div class="aki-q">${st.q}</div>
+        <div>${st.text}</div>
+      </div>
+      <div class="progress"><i style="width:${pct}%"></i></div>
+      <div style="margin-top:6px">
+        ${st.opts.map(o=>`<button class="opt" onclick="answerAki('${st.key}','${o}')">${o}</button>`).join("")}
+      </div>
+    </div>`;
+}
+function answerAki(key,val){
+  aki.answers[key]=val;
+  aki.step++;
+  if(aki.step<AKI_STEPS.length){ drawAkiStep(); }
+  else { proposeStore(true); }
+}
+
+/* 条件に合う候補を集める（自分の店＋友人おすすめ） */
+function candidatePool(){
+  const a=aki.answers;
+  let mine = DB.stores.map(s=>({...s, _src:"mine"}));
+  let frnd = [];
+  DB.friends.forEach(f=>{
+    (f.stores||[]).forEach(st=>{
+      frnd.push({...st, _src:"friend", _by:f.name, id:"fr_"+f.id+"_"+st.name});
+    });
+  });
+  let all=[...mine,...frnd];
+  // スコアリング（完全一致を優先しつつ、緩めにフォールバック）
+  function score(s){
+    let sc=0;
+    if(a.mood && (s.moods||[]).includes(a.mood)) sc+=3;
+    if(a.price && s.price===a.price) sc+=2;
+    if(a.companion && (s.companions||[]).includes(a.companion)) sc+=2;
+    if(s._src==="friend") sc+=1; // 友人のおすすめは少し加点
+    return sc;
+  }
+  all.forEach(s=>s._score=score(s));
+  const matched = all.filter(s=>s._score>0).sort((x,y)=>y._score-x._score);
+  return matched.length? matched : all; // 全く合わなければ全件から
+}
+
+let lastProposed=null;
+function proposeStore(first){
+  const pool=candidatePool();
+  if(pool.length===0){
+    document.getElementById("akiArea").innerHTML=`
+      <div class="card empty"><span class="big">😢</span>
+      提案できる店がまだありません。<br>「お店」タブから登録してみてください！</div>
+      <button class="btn" onclick="renderAki()">条件を選び直す</button>`;
+    return;
+  }
+  // 上位候補からランダム（再提案で別の店）
+  let topScore=pool[0]._score;
+  let top=pool.filter(s=>s._score===topScore);
+  let pick;
+  if(top.length>1 && lastProposed){
+    const others=top.filter(s=>s.id!==lastProposed);
+    pick=(others.length?others:top)[Math.floor(Math.random()*(others.length?others.length:top.length))];
+  }else if(pool.length>1 && lastProposed){
+    const others=pool.filter(s=>s.id!==lastProposed);
+    pick=others[Math.floor(Math.random()*others.length)]||pool[0];
+  }else{
+    pick=top[Math.floor(Math.random()*top.length)];
+  }
+  lastProposed=pick.id;
+  drawResult(pick, first);
+}
+
+function drawResult(s, first){
+  const a=aki.answers;
+  const faceLine = first
+    ? `<div class="result-emoji">✨</div><div style="font-size:13px;color:var(--muted)">あなたへのおすすめは…</div>`
+    : `<div class="result-emoji">😤</div><div style="font-size:13px;color:var(--muted)">じゃあ…これはどう！？</div>`;
+  const friendTag = s._src==="friend" ? `<div><span class="tag g">👥 ${esc(s._by)}さんのおすすめ</span></div>` : "";
+  const stars = s.rating? `<div class="stars" style="font-size:18px">${"★".repeat(s.rating)}${"☆".repeat(5-s.rating)}</div>`:"";
+  document.getElementById("akiArea").innerHTML=`
+    <div class="card result-card">
+      ${faceLine}
+      <div class="rname">${esc(s.name)}</div>
+      ${friendTag}
+      ${stars}
+      <div class="meta" style="font-size:13px;color:var(--muted);margin:8px 0;line-height:1.8">
+        🍱 ${s.genre} ・ 💰 ${s.price}<br>${s.memo?("📝 "+esc(s.memo)):""}
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">
+        条件: ${a.mood} / ${a.price} / ${a.companion} / ${a.count}
+      </div>
+    </div>
+    <div class="row">
+      <button class="btn sec" onclick="proposeStore(false)">🔄 別の店を見る</button>
+      ${s._src==="mine"
+        ? `<button class="btn" onclick="openVisitModal('${s.id}')">🍴 ここに決定！</button>`
+        : `<button class="btn" onclick="toast('友人のおすすめ店！ぜひ行ってみて 😋')">🍴 行ってみる</button>`}
+    </div>
+    <div style="height:10px"></div>
+    <button class="btn ghost" onclick="renderAki()">↩ 最初から選び直す</button>`;
+}
+
+/* ============================================================
+   ランキング
+   ============================================================ */
+let rankMode="person";
+function switchRank(m){
+  rankMode=m;
+  document.getElementById("rkPerson").classList.toggle("on",m==="person");
+  document.getElementById("rkStore").classList.toggle("on",m==="store");
+  renderRank();
+}
+function renderRank(){
+  const el=document.getElementById("rankList");
+  if(rankMode==="person"){
+    // あなた＋友人を、使った金額/訪問回数で
+    const mySpent=DB.stores.reduce((a,s)=>a+(s.spent||0)*(s.visitCount||0?1:0),0);
+    const myVisits=DB.stores.reduce((a,s)=>a+(s.visitCount||0),0);
+    let people=[{name:DB.me.name+"（あなた）",spent:mySpent,visits:myVisits,me:true}];
+    DB.friends.forEach(f=>people.push({name:f.name,spent:f.spent||0,visits:f.visits||0}));
+    people.sort((a,b)=>b.spent-a.spent);
+    el.innerHTML = people.map((p,i)=>`
+      <div class="rank-item">
+        <div class="rank-no ${i<3?'t'+(i+1):''}">${medal(i)}</div>
+        <div class="rank-main">
+          <div class="n">${esc(p.name)}</div>
+          <div class="d">今月 ${p.visits}回 訪問</div>
+        </div>
+        <div class="rank-val">¥${p.spent.toLocaleString()}</div>
+      </div>`).join("");
+  }else{
+    // 店ランキング：自分＋友人の店を訪問回数/評価で
+    let stores=[];
+    DB.stores.forEach(s=>{ if(s.visited) stores.push({name:s.name,genre:s.genre,count:s.visitCount||1,rating:s.rating||0}); });
+    DB.friends.forEach(f=>(f.stores||[]).forEach(s=>stores.push({name:s.name,genre:s.genre,count:1,rating:s.rating||0,by:f.name})));
+    // 同名店をまとめる
+    const map={};
+    stores.forEach(s=>{
+      if(!map[s.name]) map[s.name]={name:s.name,genre:s.genre,count:0,rsum:0,rn:0};
+      map[s.name].count+=s.count;
+      if(s.rating){map[s.name].rsum+=s.rating;map[s.name].rn++;}
+    });
+    let arr=Object.values(map).sort((a,b)=>b.count-a.count||b.rsum-a.rsum);
+    if(arr.length===0){ el.innerHTML=`<div class="empty"><span class="big">📊</span>訪問記録がまだありません</div>`; return; }
+    el.innerHTML = arr.map((s,i)=>{
+      const avg=s.rn?(s.rsum/s.rn).toFixed(1):"-";
+      return `<div class="rank-item">
+        <div class="rank-no ${i<3?'t'+(i+1):''}">${medal(i)}</div>
+        <div class="rank-main">
+          <div class="n">${esc(s.name)}</div>
+          <div class="d">${s.genre} ・ ★${avg}</div>
+        </div>
+        <div class="rank-val">${s.count}人</div>
+      </div>`;
+    }).join("");
+  }
+}
+function medal(i){ return i===0?"🥇":i===1?"🥈":i===2?"🥉":(i+1); }
+
+/* ============================================================
+   友人連携 / 飯テロ DM
+   ============================================================ */
+let friendTab="friends";
+function switchFriendTab(t){
+  friendTab=t;
+  document.getElementById("frTab1").classList.toggle("on",t==="friends");
+  document.getElementById("frTab2").classList.toggle("on",t==="dm");
+  document.getElementById("friendsPane").style.display = t==="friends"?"block":"none";
+  document.getElementById("dmPane").style.display = t==="dm"?"block":"none";
+  renderFriends();
+}
+const SAMPLE_FRIEND_STORES=[
+  {name:"行列の人気そば処",genre:"和食",price:"1,000～2,000円",moods:["お腹いっぱい"],companions:["友人","家族"],rating:4,memo:"コシのある手打ち麺"},
+  {name:"映えカフェ Bloom",genre:"カフェ",price:"1,000～2,000円",moods:["デート","ご褒美"],companions:["恋人候補","友人"],rating:5,memo:"パンケーキが名物"},
+  {name:"本格焼肉 炎",genre:"焼肉",price:"4,000～5,000円",moods:["ご褒美","飲み会"],companions:["友人","家族","恋人"],rating:5,memo:"A5ランク"},
+  {name:"深夜の担々麺",genre:"ラーメン",price:"～1,000円",moods:["お腹いっぱい"],companions:["友人"],rating:4,memo:"しびれる旨さ"},
+];
+const SAMPLE_NAMES=["けんと","さくら","だいき","ひな","りく","あおい","しょう","みお"];
+
+function addFriend(){
+  const id=document.getElementById("friendIdInput").value.trim();
+  if(!id){ toast("友人IDを入力してください"); return; }
+  if(DB.friends.find(f=>f.id===id)){ toast("すでに連携済みです"); return; }
+  // デモ: ランダムな名前とおすすめ店を割り当て
+  const name=SAMPLE_NAMES[Math.floor(Math.random()*SAMPLE_NAMES.length)];
+  const n=1+Math.floor(Math.random()*2);
+  const shuffled=[...SAMPLE_FRIEND_STORES].sort(()=>Math.random()-0.5).slice(0,n);
+  DB.friends.push({id,name,stores:shuffled,spent:1000+Math.floor(Math.random()*7000),visits:1+Math.floor(Math.random()*6)});
+  save();
+  document.getElementById("friendIdInput").value="";
+  toast(`${name}さんと連携しました 👋`);
+  renderFriends();
+}
+function removeFriend(id){
+  if(!confirm("連携を解除しますか？")) return;
+  DB.friends=DB.friends.filter(f=>f.id!==id);
+  save(); renderFriends(); toast("連携を解除しました");
+}
+
+function renderFriends(){
+  // 連携リスト
+  const fl=document.getElementById("friendList");
+  if(DB.friends.length===0){
+    fl.innerHTML=`<div class="empty"><span class="big">🧑‍🤝‍🧑</span>まだ友人がいません。<br>IDを入力して連携してみましょう！</div>`;
+  }else{
+    fl.innerHTML = DB.friends.map(f=>`
+      <div class="card" style="padding:12px">
+        <div class="friend" style="border:none;padding:0">
+          <div class="avatar">${esc(f.name[0])}</div>
+          <div style="flex:1">
+            <div style="font-weight:bold">${esc(f.name)} <span class="pill">ID:${esc(f.id)}</span></div>
+            <div style="font-size:12px;color:var(--muted)">おすすめ店 ${f.stores.length}件 ・ 今月${f.visits||0}回</div>
+          </div>
+          <button class="btn sm ghost" onclick="removeFriend('${f.id}')">解除</button>
+        </div>
+        <div style="margin-top:8px">
+          ${f.stores.map(s=>`<span class="tag g">🍽️ ${esc(s.name)}</span>`).join("")}
+        </div>
+      </div>`).join("");
+  }
+  // DM
+  const dl=document.getElementById("dmList");
+  if(!DB.dms || DB.dms.length===0){
+    dl.innerHTML=`<div class="empty"><span class="big">🔥</span>飯テロの受信はまだありません</div>`;
+  }else{
+    dl.innerHTML = DB.dms.map(d=>`
+      <div class="dm">
+        <div class="from">🔥 ${esc(d.fromName)} さんからの飯テロ</div>
+        <div style="font-weight:bold;font-size:16px">${esc(d.storeName)} <span class="tag">${esc(d.genre||"")}</span></div>
+        <div style="margin:6px 0;font-size:14px">「${esc(d.msg)}」</div>
+        ${d.reaction
+          ? `<div style="font-size:13px;color:var(--muted)">返信済み: ${d.reaction==="good"?"😋 おいしかった！ありがとう":"😖 不味かった！バカ舌やん"}</div>`
+          : `<div class="row">
+              <button class="btn sm" style="background:var(--good)" onclick="reactDm('${d.id}','good')">😋 おいしかった！</button>
+              <button class="btn sm" style="background:var(--bad)" onclick="reactDm('${d.id}','bad')">😖 バカ舌やん</button>
+            </div>`}
+      </div>`).join("");
+  }
+}
+function reactDm(id,r){
+  const d=DB.dms.find(d=>d.id===id);
+  d.reaction=r;
+  save(); renderFriends();
+  toast(r==="good"?"「おいしかった！」を送信 😋":"「バカ舌やん」を送信 😖 通知が届きました");
+}
+
+/* 飯テロ送信モーダル */
+function openSendModal(storeId){
+  const s=DB.stores.find(s=>s.id===storeId);
+  document.getElementById("sendStoreId").value=storeId;
+  document.getElementById("sendStoreName").textContent="🍽️ "+s.name+"（"+s.genre+"）";
+  const list=document.getElementById("sendFriendList");
+  if(DB.friends.length===0){
+    list.innerHTML=`<div class="hint">先に「友人」タブで友人を連携してください。</div>`;
+  }else{
+    list.innerHTML=DB.friends.map(f=>`
+      <button class="opt" onclick="sendTero('${f.id}','${storeId}')">
+        👤 ${esc(f.name)} に送りつける
+      </button>`).join("");
+  }
+  openModal("sendModal");
+}
+function sendTero(friendId,storeId){
+  const f=DB.friends.find(f=>f.id===friendId);
+  const s=DB.stores.find(s=>s.id===storeId);
+  // 自分が送った飯テロを、デモとして相手から返ってくる形＝受信箱にも残す
+  DB.dms.unshift({id:uid(),fromName:DB.me.name+"→"+f.name,storeName:s.name,genre:s.genre,msg:"これ食べに行こう！🔥（"+f.name+"さんへ送信済み）",reaction:null});
+  save(); closeModal("sendModal");
+  toast(`${f.name}さんに飯テロを送りつけました 🔥`);
+}
+
+/* ============================================================
+   称号機能（訪問傾向から自動付与）
+   ============================================================ */
+const TITLES = [
+  {id:"chill", icon:"☕", name:"チル重視・癒し系", desc:"カフェ系の訪問が多いあなた",
+    test:c=>c.genre["カフェ"]>=2 || c.mood["デート"]>=2},
+  {id:"taikai", icon:"🍖", name:"たらふく体育会系", desc:"がっつり満腹を求める胃袋",
+    test:c=>c.mood["お腹いっぱい"]>=2},
+  {id:"gourmet", icon:"👑", name:"ご褒美グルメ王", desc:"高予算のご褒美を惜しまない",
+    test:c=>c.mood["ご褒美"]>=1 && c.highPrice>=1},
+  {id:"party", icon:"🍻", name:"宴会番長", desc:"飲み会といえばあなた",
+    test:c=>c.mood["飲み会"]>=1},
+  {id:"explorer", icon:"🧭", name:"開拓者", desc:"5店以上を訪問した冒険家",
+    test:c=>c.visitedCount>=5},
+  {id:"romantic", icon:"💕", name:"ロマンチスト", desc:"恋人との店をたくさん登録",
+    test:c=>c.comp["恋人"]+c.comp["恋人候補"]>=2},
+  {id:"foodie", icon:"⭐", name:"舌の肥えた評論家", desc:"★5評価をいくつも付けた",
+    test:c=>c.fiveStars>=2},
+];
+
+function calcTendency(){
+  const c={genre:{},mood:{},comp:{},visitedCount:0,highPrice:0,fiveStars:0};
+  MOODS.forEach(m=>c.mood[m]=0);
+  COMPANIONS.forEach(x=>c.comp[x]=0);
+  DB.stores.forEach(s=>{
+    if(s.visited){
+      c.visitedCount++;
+      c.genre[s.genre]=(c.genre[s.genre]||0)+1;
+      (s.moods||[]).forEach(m=>c.mood[m]=(c.mood[m]||0)+1);
+      (s.companions||[]).forEach(x=>c.comp[x]=(c.comp[x]||0)+1);
+      if(["4,000～5,000円","5,000～6,000円"].includes(s.price)) c.highPrice++;
+      if(s.rating>=5) c.fiveStars++;
+    }
+  });
+  return c;
+}
+function renderBadge(){
+  const c=calcTendency();
+  const earned=TITLES.filter(t=>t.test(c));
+  document.getElementById("topTitle").textContent = earned.length? earned[0].icon+" "+earned[0].name : "まだ称号なし";
+  const el=document.getElementById("badgeList");
+  el.innerHTML = TITLES.map(t=>{
+    const got=earned.includes(t);
+    return `<div class="badge ${got?'':'locked'}">
+      <div class="bi">${t.icon}</div>
+      <div style="flex:1">
+        <div class="bt">${t.name} ${got?'<span class="pill">獲得！</span>':''}</div>
+        <div class="bd">${t.desc}</div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+/* ============================================================
+   ユーティリティ
+   ============================================================ */
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
+
+/* 起動 */
+renderAki();
+</script>
+</body>
+</html>
