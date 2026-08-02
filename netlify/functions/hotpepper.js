@@ -67,6 +67,7 @@ exports.handler = async function () {
     name: s.name,
     genre: s.genre && s.genre.name,
     budget: s.budget && s.budget.name,
+    catch: s.catch,
     open: s.open,
     access: s.access,
     tel: s.tel,

@@ -3,25 +3,26 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>今日何食べる？</title>
+<title>今日何食べる？ v2</title>
 <style>
   :root{
-    --bg:#fff7f0;
-    --card:#ffffff;
-    --primary:#ff6b35;
-    --primary-dark:#e8521c;
-    --accent:#ffb627;
-    --text:#33281f;
-    --muted:#998d80;
-    --line:#f0e3d6;
-    --good:#37b24d;
-    --bad:#e03131;
-    --shadow:0 4px 16px rgba(255,107,53,.12);
+    --bg:#161016;
+    --card:#221a22;
+    --primary:#b3123a;
+    --primary-dark:#7c0b28;
+    --accent:#e0a458;
+    --text:#f3e9ec;
+    --muted:#a6939a;
+    --line:#3a2e35;
+    --good:#4caf6d;
+    --bad:#e5484d;
+    --input:#241c24;
+    --shadow:0 4px 18px rgba(179,18,58,.35);
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0}
   body{
-    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+    font-family:"Meiryo UI","Meiryo","Hiragino Kaku Gothic ProN",sans-serif;
     background:var(--bg);
     color:var(--text);
     max-width:480px;
@@ -32,14 +33,17 @@
   }
   /* ヘッダー */
   header{
-    background:linear-gradient(135deg,var(--primary),var(--accent));
+    background:linear-gradient(135deg,var(--primary-dark),var(--primary) 55%,var(--accent));
     color:#fff;
-    padding:16px 18px;
+    padding:14px 18px;
     position:sticky;top:0;z-index:50;
-    box-shadow:0 2px 10px rgba(0,0,0,.1);
+    box-shadow:0 2px 14px rgba(0,0,0,.4);
   }
-  header h1{margin:0;font-size:20px;display:flex;align-items:center;gap:8px}
-  header .sub{font-size:12px;opacity:.9;margin-top:2px}
+  header h1{margin:0;font-size:19px;display:flex;align-items:center;gap:8px}
+  header .sub{font-size:11px;opacity:.9;margin-top:2px}
+  header .userbox{text-align:right;font-size:11px;line-height:1.6}
+  header .userbox .nick{font-weight:bold}
+  header .userbox .logout{text-decoration:underline;cursor:pointer;opacity:.9}
   /* ビュー */
   .view{display:none;padding:16px;animation:fade .25s ease}
   .view.active{display:block}
@@ -50,27 +54,28 @@
     box-shadow:var(--shadow);border:1px solid var(--line);
   }
   label.fld{display:block;font-size:13px;font-weight:bold;margin:12px 0 5px;color:var(--text)}
-  input[type=text],input[type=number],select,textarea{
+  input[type=text],input[type=number],input[type=password],select,textarea{
     width:100%;padding:11px 12px;border:1.5px solid var(--line);border-radius:11px;
-    font-size:15px;font-family:inherit;background:#fffdfb;color:var(--text);
+    font-size:15px;font-family:inherit;background:var(--input);color:var(--text);
   }
   input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary)}
   textarea{resize:vertical;min-height:60px}
   .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:5px}
   .chip{
     padding:8px 14px;border:1.5px solid var(--line);border-radius:20px;font-size:13px;
-    background:#fff;cursor:pointer;user-select:none;transition:.15s;
+    background:var(--input);color:var(--text);cursor:pointer;user-select:none;transition:.15s;
   }
   .chip.on{background:var(--primary);color:#fff;border-color:var(--primary)}
   .btn{
     display:block;width:100%;padding:14px;border:none;border-radius:13px;
     background:var(--primary);color:#fff;font-size:16px;font-weight:bold;cursor:pointer;
-    box-shadow:var(--shadow);transition:.15s;
+    box-shadow:var(--shadow);transition:.12s;
   }
-  .btn:active{transform:scale(.98)}
-  .btn.sec{background:#fff;color:var(--primary);border:1.5px solid var(--primary);box-shadow:none}
-  .btn.ghost{background:#f4ebe2;color:var(--text);box-shadow:none}
+  .btn:active{transform:scale(.93);box-shadow:0 1px 6px rgba(0,0,0,.4) inset}
+  .btn.sec{background:var(--input);color:var(--primary);border:1.5px solid var(--primary);box-shadow:none}
+  .btn.ghost{background:#2c222c;color:var(--text);box-shadow:none}
   .btn.sm{padding:9px;font-size:13px;border-radius:10px;width:auto;display:inline-block}
+  .btn[disabled]{opacity:.5;pointer-events:none}
   .row{display:flex;gap:10px}
   .row>*{flex:1}
   /* 店カード */
@@ -81,10 +86,10 @@
   .store .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
   .store .name{font-size:16px;font-weight:bold}
   .store .meta{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.7}
-  .tag{display:inline-block;background:#fff0e6;color:var(--primary-dark);font-size:11px;
+  .tag{display:inline-block;background:rgba(179,18,58,.22);color:#ff9db0;font-size:11px;
     padding:2px 9px;border-radius:10px;margin:2px 4px 2px 0}
-  .tag.g{background:#e7f6ea;color:var(--good)}
-  .tag.f{background:#eef2ff;color:#4263eb}
+  .tag.g{background:rgba(76,175,109,.2);color:#8be6a8}
+  .tag.f{background:rgba(224,164,88,.2);color:var(--accent)}
   .visited{font-size:11px;color:var(--good);font-weight:bold}
   .stars{color:var(--accent);font-size:14px;letter-spacing:1px}
   .empty{text-align:center;color:var(--muted);padding:40px 16px;font-size:14px;line-height:1.8}
@@ -92,90 +97,129 @@
   /* ボトムナビ */
   nav.tabbar{
     position:fixed;bottom:0;left:50%;transform:translateX(-50%);
-    width:100%;max-width:480px;background:#fff;display:flex;
-    border-top:1px solid var(--line);box-shadow:0 -2px 12px rgba(0,0,0,.06);z-index:60;
+    width:100%;max-width:480px;background:var(--card);display:flex;
+    border-top:1px solid var(--line);box-shadow:0 -2px 14px rgba(0,0,0,.45);z-index:60;
   }
   nav.tabbar button{
-    flex:1;background:none;border:none;padding:8px 2px 9px;cursor:pointer;
-    color:var(--muted);font-size:10px;display:flex;flex-direction:column;align-items:center;gap:3px;
+    flex:1;background:none;border:none;padding:7px 1px 8px;cursor:pointer;
+    color:var(--muted);font-size:9px;display:flex;flex-direction:column;align-items:center;gap:3px;
   }
-  nav.tabbar button .ic{font-size:21px;line-height:1}
-  nav.tabbar button.on{color:var(--primary)}
+  nav.tabbar button .ic{font-size:18px;line-height:1}
+  nav.tabbar button.on{color:var(--accent)}
   /* アキネーター */
   .aki-stage{text-align:center;padding:10px 0}
-  .aki-face{font-size:72px;margin:6px 0 2px;animation:bob 2s ease-in-out infinite}
+  .aki-face{font-size:68px;margin:6px 0 2px;animation:bob 2s ease-in-out infinite}
   @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
   .aki-bubble{
-    background:#fff;border:2px solid var(--primary);border-radius:16px;padding:14px 16px;
+    background:var(--card);border:2px solid var(--primary);border-radius:16px;padding:14px 16px;
     font-size:15px;margin:10px 4px;position:relative;box-shadow:var(--shadow);
   }
   .aki-bubble:after{content:"";position:absolute;top:-11px;left:50%;transform:translateX(-50%);
     border:10px solid transparent;border-bottom-color:var(--primary)}
   .aki-q{font-size:13px;color:var(--muted);margin-bottom:4px}
   .progress{height:6px;background:var(--line);border-radius:6px;overflow:hidden;margin:14px 0 4px}
-  .progress>i{display:block;height:100%;background:var(--primary);transition:.3s}
+  .progress>i{display:block;height:100%;background:linear-gradient(90deg,var(--primary),var(--accent));transition:.3s}
   .opt{
     display:block;width:100%;padding:14px;margin-top:10px;border:1.5px solid var(--line);
-    border-radius:13px;background:#fff;font-size:15px;cursor:pointer;text-align:left;transition:.15s;
+    border-radius:13px;background:var(--input);color:var(--text);font-size:15px;cursor:pointer;text-align:left;transition:.12s;
   }
-  .opt:active{transform:scale(.98)}
+  .opt:active{transform:scale(.96);background:rgba(179,18,58,.18)}
   .opt:hover{border-color:var(--primary)}
   /* 提案結果 */
-  .result-card{text-align:center;padding:22px 16px}
-  .result-card .rname{font-size:24px;font-weight:bold;margin:8px 0}
-  .result-emoji{font-size:60px}
+  .result-emoji{font-size:54px}
   /* ランキング */
   .rank-item{display:flex;align-items:center;gap:12px;padding:11px 4px;border-bottom:1px solid var(--line)}
   .rank-item:last-child{border-bottom:none}
   .rank-no{font-size:20px;font-weight:bold;width:34px;text-align:center}
-  .rank-no.t1{color:#f59f00}.rank-no.t2{color:#adb5bd}.rank-no.t3{color:#cd853f}
+  .rank-no.t1{color:#f0c04a}.rank-no.t2{color:#c9c9d4}.rank-no.t3{color:#d99a63}
   .rank-main{flex:1}
   .rank-main .n{font-weight:bold;font-size:15px}
   .rank-main .d{font-size:12px;color:var(--muted)}
-  .rank-val{font-weight:bold;color:var(--primary)}
+  .rank-val{font-weight:bold;color:var(--accent)}
   /* 称号 */
   .badge{
     display:flex;align-items:center;gap:14px;padding:14px;border-radius:14px;margin-bottom:12px;
-    background:linear-gradient(135deg,#fff,#fff7ef);border:1.5px solid var(--accent);box-shadow:var(--shadow);
+    background:linear-gradient(135deg,#241a22,#2c1d24);border:1.5px solid var(--accent);box-shadow:var(--shadow);
   }
-  .badge.locked{filter:grayscale(1);opacity:.55;border-color:var(--line);background:#faf6f2}
-  .badge .bi{font-size:38px}
+  .badge.locked{filter:grayscale(1);opacity:.5;border-color:var(--line);background:#1c161c}
+  .badge .bi{font-size:36px}
   .badge .bt{font-weight:bold;font-size:16px}
   .badge .bd{font-size:12px;color:var(--muted);margin-top:2px}
   /* 友人 / DM */
   .friend{display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--line)}
   .avatar{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--accent));
     color:#fff;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:18px;flex-shrink:0}
-  .dm{background:#fff;border-radius:14px;padding:13px;margin-bottom:11px;box-shadow:var(--shadow);border:1px solid var(--line)}
+  .dm{background:var(--card);border-radius:14px;padding:13px;margin-bottom:11px;box-shadow:var(--shadow);border:1px solid var(--line)}
   .dm .from{font-size:12px;color:var(--muted);margin-bottom:5px}
-  .seg{display:flex;background:#f4ebe2;border-radius:11px;padding:4px;margin-bottom:14px;gap:4px}
+  .seg{display:flex;background:var(--input);border-radius:11px;padding:4px;margin-bottom:14px;gap:4px}
   .seg button{flex:1;border:none;background:none;padding:9px;border-radius:8px;font-size:13px;font-weight:bold;color:var(--muted);cursor:pointer}
-  .seg button.on{background:#fff;color:var(--primary);box-shadow:0 1px 4px rgba(0,0,0,.08)}
+  .seg button.on{background:var(--primary);color:#fff;box-shadow:0 1px 4px rgba(0,0,0,.3)}
   /* モーダル */
-  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;display:none;align-items:flex-end;justify-content:center}
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;display:none;align-items:flex-end;justify-content:center}
   .modal-bg.show{display:flex}
-  .modal{background:#fff;width:100%;max-width:480px;border-radius:20px 20px 0 0;padding:18px;max-height:88vh;overflow:auto;animation:up .25s ease}
+  .modal{background:var(--card);width:100%;max-width:480px;border-radius:20px 20px 0 0;padding:18px;max-height:88vh;overflow:auto;animation:up .25s ease;border-top:1px solid var(--line)}
   @keyframes up{from{transform:translateY(40px);opacity:.5}to{transform:none;opacity:1}}
   .modal h3{margin:0 0 6px;font-size:18px}
   .x{float:right;font-size:24px;color:var(--muted);cursor:pointer;line-height:1}
   /* トースト */
   #toast{position:fixed;bottom:84px;left:50%;transform:translateX(-50%) translateY(20px);
-    background:#33281f;color:#fff;padding:11px 20px;border-radius:24px;font-size:14px;z-index:200;
-    opacity:0;transition:.3s;pointer-events:none;max-width:90%;text-align:center}
+    background:#2a1520;color:#fff;padding:11px 20px;border-radius:24px;font-size:14px;z-index:200;
+    opacity:0;transition:.3s;pointer-events:none;max-width:90%;text-align:center;border:1px solid var(--primary)}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   .hint{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.6}
-  .pill{display:inline-block;background:var(--accent);color:#fff;font-size:11px;font-weight:bold;padding:2px 8px;border-radius:10px}
-  .hp-credit{text-align:center;font-size:11px;color:var(--muted);padding:10px 16px 4px}
-  .hp-credit a{color:var(--primary-dark);text-decoration:underline}
-  .hp-photo-credit{font-size:10px;color:var(--muted);margin-top:2px}
+  .pill{display:inline-block;background:var(--accent);color:#2a1808;font-size:11px;font-weight:bold;padding:2px 8px;border-radius:10px}
+  .hp-credit{text-align:center;font-size:10px;color:var(--muted);padding:10px 16px 4px}
+  .hp-credit a{color:var(--accent);text-decoration:underline}
   .hp-photo{width:100%;max-height:160px;object-fit:cover;border-radius:10px;margin-top:8px}
+  .hp-photo-credit{font-size:10px;color:var(--muted);margin-top:2px}
 </style>
 </head>
 <body>
 
+<!-- ========== ログイン / 新規登録 ========== -->
+<div id="authScreen" style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px">
+  <div class="card" style="width:100%">
+    <h2 class="section" style="justify-content:center">🍴 今日何食べる？</h2>
+    <div class="seg">
+      <button id="authTabLogin" class="on" onclick="switchAuthTab('login')">ログイン</button>
+      <button id="authTabSignup" onclick="switchAuthTab('signup')">新規登録</button>
+    </div>
+    <div id="authLoginPane">
+      <label class="fld">ユーザーID</label>
+      <input type="text" id="li_id" placeholder="例: taro123">
+      <label class="fld">パスワード</label>
+      <input type="password" id="li_pw" placeholder="パスワード">
+      <div style="height:14px"></div>
+      <button class="btn" onclick="login()">ログイン</button>
+      <div class="hint" style="text-align:center;margin-top:10px">お試しの場合は「新規登録」から好きなIDで始められます</div>
+    </div>
+    <div id="authSignupPane" style="display:none">
+      <label class="fld">ユーザーID</label>
+      <input type="text" id="su_id" placeholder="半角英数字など">
+      <label class="fld">パスワード</label>
+      <input type="password" id="su_pw" placeholder="パスワード">
+      <label class="fld">ニックネーム</label>
+      <input type="text" id="su_nick" placeholder="表示名">
+      <div style="height:14px"></div>
+      <button class="btn" onclick="signup()">登録してはじめる</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== アプリ本体 ========== -->
+<div id="appRoot" style="display:none">
+
 <header>
-  <h1>🍴 今日何食べる？</h1>
-  <div class="sub">気分で選ぶ、あなたとみんなのお気に入り</div>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start">
+    <div>
+      <h1>🍴 今日何食べる？</h1>
+      <div class="sub">気分で選ぶ、あなたとみんなのお気に入り</div>
+    </div>
+    <div class="userbox">
+      <div class="nick" id="navUserName"></div>
+      <div class="logout" onclick="logout()">ログアウト</div>
+    </div>
+  </div>
 </header>
 
 <!-- ========== 提案（ホーム / アキネーター） ========== -->
@@ -183,11 +227,24 @@
   <div id="akiArea"></div>
 </section>
 
-<!-- ========== 周辺のお店一覧（ホットペッパー グルメ） ========== -->
-<section id="v-list" class="view">
-  <h2 class="section">📋 周辺のお店一覧</h2>
-  <div class="hint" style="margin-bottom:10px">ホットペッパー グルメから三宮エリアのお店を取得して表示します</div>
-  <div id="hpListArea"></div>
+<!-- ========== 検索 ========== -->
+<section id="v-search" class="view">
+  <h2 class="section">🔍 お店を検索</h2>
+  <div class="card">
+    <label class="fld">キーワード</label>
+    <input type="text" id="sq_keyword" placeholder="店名・特徴で検索" oninput="renderSearch()">
+    <label class="fld">ジャンル（複数可）</label>
+    <div class="chips" id="sq_genres"></div>
+    <label class="fld">予算</label>
+    <select id="sq_price" onchange="renderSearch()"><option value="">こだわらない</option></select>
+    <label class="fld">こだわり条件</label>
+    <div class="chips">
+      <span class="chip" id="sq_private" onclick="this.classList.toggle('on');renderSearch()">個室あり</span>
+      <span class="chip" id="sq_nosmoke" onclick="this.classList.toggle('on');renderSearch()">禁煙</span>
+    </div>
+  </div>
+  <div id="searchList"></div>
+  <div class="hp-credit">Powered by <a href="http://webservice.recruit.co.jp/" target="_blank" rel="noopener">ホットペッパーグルメ Webサービス</a></div>
 </section>
 
 <!-- ========== お店 ========== -->
@@ -232,14 +289,34 @@
   </div>
 </section>
 
-<!-- ========== 称号 ========== -->
-<section id="v-badge" class="view">
-  <h2 class="section">🎖️ あなたの称号</h2>
-  <div class="card" style="text-align:center">
-    <div style="font-size:13px;color:var(--muted)">訪問記録から自動で傾向を分析</div>
-    <div id="topTitle" style="font-size:22px;font-weight:bold;margin-top:6px;color:var(--primary)">―</div>
+<!-- ========== マイページ（称号・履歴・グラフ） ========== -->
+<section id="v-mypage" class="view">
+  <h2 class="section">🎖️ マイページ</h2>
+  <div class="seg">
+    <button id="mpTab-badge" class="on" onclick="switchMypageTab('badge')">称号</button>
+    <button id="mpTab-history" onclick="switchMypageTab('history')">履歴</button>
+    <button id="mpTab-graph" onclick="switchMypageTab('graph')">グラフ</button>
   </div>
-  <div id="badgeList"></div>
+  <div id="mp-badge">
+    <div class="card" style="text-align:center">
+      <div style="font-size:13px;color:var(--muted)">訪問記録から自動で傾向を分析</div>
+      <div id="topTitle" style="font-size:22px;font-weight:bold;margin-top:6px;color:var(--accent)">―</div>
+    </div>
+    <div id="badgeList"></div>
+  </div>
+  <div id="mp-history" style="display:none">
+    <div id="historyList"></div>
+  </div>
+  <div id="mp-graph" style="display:none">
+    <div class="card">
+      <div style="font-weight:bold;margin-bottom:6px">🍱 ジャンル別 訪問回数</div>
+      <div id="graphGenre"></div>
+    </div>
+    <div class="card">
+      <div style="font-weight:bold;margin-bottom:6px">💴 使用金額くらべ（あなた vs 友人）</div>
+      <div id="graphCompare"></div>
+    </div>
+  </div>
 </section>
 
 <div class="hp-credit">Powered by <a href="http://webservice.recruit.co.jp/" target="_blank" rel="noopener">ホットペッパーグルメ Webサービス</a></div>
@@ -247,11 +324,11 @@
 <!-- ========== ボトムナビ ========== -->
 <nav class="tabbar">
   <button id="t-home" class="on" onclick="nav('home')"><span class="ic">🎯</span>提案</button>
-  <button id="t-list" onclick="nav('list')"><span class="ic">📋</span>一覧</button>
+  <button id="t-search" onclick="nav('search')"><span class="ic">🔍</span>検索</button>
   <button id="t-stores" onclick="nav('stores')"><span class="ic">🏠</span>お店</button>
   <button id="t-rank" onclick="nav('rank')"><span class="ic">🏆</span>ランキング</button>
   <button id="t-friends" onclick="nav('friends')"><span class="ic">👥</span>友人</button>
-  <button id="t-badge" onclick="nav('badge')"><span class="ic">🎖️</span>称号</button>
+  <button id="t-mypage" onclick="nav('mypage')"><span class="ic">🎖️</span>マイページ</button>
 </nav>
 
 <!-- ========== 店 登録/編集 モーダル ========== -->
@@ -263,17 +340,20 @@
     <label class="fld">店名 <span style="color:var(--primary)">*</span></label>
     <input type="text" id="f_name" placeholder="例: 名物カレー食堂">
     <label class="fld">ジャンル</label>
-    <select id="f_genre">
-      <option>和食</option><option>洋食</option><option>中華</option><option>ラーメン</option>
-      <option>居酒屋</option><option>カフェ</option><option>焼肉</option><option>ファストフード</option>
-      <option>エスニック</option><option>スイーツ</option><option>その他</option>
-    </select>
+    <select id="f_genre"></select>
     <label class="fld">予算（1人あたり）</label>
     <select id="f_price"></select>
     <label class="fld">合う気分（複数可）</label>
     <div class="chips" id="f_moods"></div>
     <label class="fld">合う相手（複数可）</label>
     <div class="chips" id="f_companions"></div>
+    <label class="fld">個室 / 記念日利用</label>
+    <div class="chips" id="f_extra">
+      <span class="chip" data-v="private" onclick="this.classList.toggle('on')">個室あり</span>
+      <span class="chip" data-v="anniv" onclick="this.classList.toggle('on')">記念日向き</span>
+    </div>
+    <label class="fld">喫煙</label>
+    <select id="f_smoking"><option>不明</option><option>不可</option><option>可</option><option>一部可</option></select>
     <label class="fld">客層・メモ</label>
     <textarea id="f_memo" placeholder="例: 学生が多くてにぎやか。デートには不向き。"></textarea>
     <div style="height:16px"></div>
@@ -313,41 +393,87 @@
   </div>
 </div>
 
+</div><!-- /appRoot -->
+
 <div id="toast"></div>
 
 <script>
 /* ============================================================
-   今日何食べる？ — データ層
+   今日何食べる？ v2 — データ層
    HTML/CSS/JSのみ・サーバー不要（localStorageに保存）
+   ・ログイン機能とお店データ(HotPepper想定)はダミー実装
+     → 実際のSupabase / ホットペッパーAPI連携は別工程で行う
    ============================================================ */
 const MOODS = ["お腹いっぱい","デート","飲み会","ご褒美"];
 const COMPANIONS = ["友人","家族","恋人","恋人候補"];
 const PRICES = ["～1,000円","1,000～2,000円","2,000～3,000円","3,000～4,000円","4,000～5,000円","5,000～6,000円"];
-const KEY = "konnani_tabe_v1";
+const GENRES = ["和食","洋食","中華","ラーメン","居酒屋","カフェ","焼肉","ファストフード","エスニック","スイーツ","その他"];
+const USERS_KEY = "konnani_tabe_v2_users";
+const SESSION_KEY = "konnani_tabe_v2_session";
 
-let DB = load();
-
-function load(){
-  try{
-    const raw = localStorage.getItem(KEY);
-    if(raw) return JSON.parse(raw);
-  }catch(e){}
-  return seed();
-}
-function save(){ localStorage.setItem(KEY, JSON.stringify(DB)); }
+let DB = null;
 
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
+function toast(msg){
+  const t=document.getElementById("toast");
+  t.textContent=msg; t.classList.add("show");
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("show"),2200);
+}
+function openModal(id){ document.getElementById(id).classList.add("show"); }
+function closeModal(id){ document.getElementById(id).classList.remove("show"); }
 
-/* 初回デモデータ */
-function seed(){
+/* ============================================================
+   お店の元データ（ホットペッパー グルメ Webサービス・Netlify Functions経由）
+   保存はせず、ログイン後に毎回サーバーから取得する
+   ============================================================ */
+let hpStores = [];
+let hpLoadState = "idle"; // idle | loading | loaded | error
+let hpError = null;
+function loadHpStores(){
+  hpLoadState = "loading";
+  fetch("/.netlify/functions/hotpepper")
+    .then(res=>{
+      if(!res.ok) return res.json().then(d=>{ throw new Error((d&&d.error)||("HTTP "+res.status)); });
+      return res.json();
+    })
+    .then(data=>{
+      hpStores = (data.shops||[]).map(s=>({
+        id:"hp_"+s.id, hpId:s.id, hpUrl:s.url,
+        name:s.name, genre:s.genre||"その他",
+        price:s.budget||"", hours:s.open||"", phone:s.tel||"",
+        walk:s.access||"", photoUrl:s.photo||null,
+        privateRoom: s.privateRoom==="あり",
+        smoking: s.nonSmoking==="あり" ? "不可" : "可",
+        anniversary:false,
+        moods:[], companions:[],
+        memo:s.catch||s.access||"",
+      }));
+      hpLoadState="loaded";
+      if(document.getElementById("v-search").classList.contains("active")) renderSearch();
+    })
+    .catch(err=>{
+      hpLoadState="error"; hpError=err.message;
+      if(document.getElementById("v-search").classList.contains("active")) renderSearch();
+    });
+}
+
+/* ============================================================
+   ユーザー認証（ローカルのみ・デモ実装）
+   ============================================================ */
+function getUsers(){ try{ return JSON.parse(localStorage.getItem(USERS_KEY))||{}; }catch(e){ return {}; } }
+function saveUsers(u){ localStorage.setItem(USERS_KEY, JSON.stringify(u)); }
+function userDbKey(id){ return "konnani_tabe_v2_data_"+id; }
+
+function seed(nickname){
   const me_stores = [
-    {id:uid(),name:"名物からあげ食堂",genre:"和食",price:"～1,000円",moods:["お腹いっぱい"],companions:["友人","家族"],memo:"ボリューム満点。学生でにぎやか。",visited:true,rating:5,spent:980,visitCount:4},
-    {id:uid(),name:"夜景イタリアン Luna",genre:"洋食",price:"4,000～5,000円",moods:["デート","ご褒美"],companions:["恋人","恋人候補"],memo:"雰囲気抜群。記念日に。",visited:true,rating:4,spent:4500,visitCount:1},
-    {id:uid(),name:"赤提灯 とり吉",genre:"居酒屋",price:"3,000～4,000円",moods:["飲み会"],companions:["友人"],memo:"飲み放題あり。大人数OK。",visited:false,rating:0,spent:0,visitCount:0},
-    {id:uid(),name:"癒しカフェ もくれん",genre:"カフェ",price:"1,000～2,000円",moods:["デート","ご褒美"],companions:["恋人候補","友人"],memo:"静かでチルできる。",visited:true,rating:4,spent:1300,visitCount:3},
+    {id:uid(),name:"名物からあげ食堂",genre:"和食",price:"～1,000円",moods:["お腹いっぱい"],companions:["友人","家族"],memo:"ボリューム満点。学生でにぎやか。",visited:true,rating:5,spent:980,visitCount:4,privateRoom:false,anniversary:false,smoking:"不可"},
+    {id:uid(),name:"夜景イタリアン Luna",genre:"洋食",price:"4,000～5,000円",moods:["デート","ご褒美"],companions:["恋人","恋人候補"],memo:"雰囲気抜群。記念日に。",visited:true,rating:4,spent:4500,visitCount:1,privateRoom:true,anniversary:true,smoking:"不可"},
+    {id:uid(),name:"赤提灯 とり吉",genre:"居酒屋",price:"3,000～4,000円",moods:["飲み会"],companions:["友人"],memo:"飲み放題あり。大人数OK。",visited:false,rating:0,spent:0,visitCount:0,privateRoom:false,anniversary:false,smoking:"可"},
+    {id:uid(),name:"癒しカフェ もくれん",genre:"カフェ",price:"1,000～2,000円",moods:["デート","ご褒美"],companions:["恋人候補","友人"],memo:"静かでチルできる。",visited:true,rating:4,spent:1300,visitCount:3,privateRoom:false,anniversary:false,smoking:"不可"},
   ];
   return {
-    me:{name:"あなた"},
+    me:{name:nickname||"あなた"},
     stores: me_stores,
     friends:[
       {id:"yuta01",name:"ゆうた",stores:[
@@ -361,46 +487,94 @@ function seed(){
     dms:[
       {id:uid(),fromName:"ゆうた",storeName:"がっつり二郎系 武蔵",genre:"ラーメン",msg:"これ食べに行こうぜ🍜",reaction:null}
     ],
-    titlesSeen:[]
+    titlesSeen:[],
+    visitLog:[]
   };
+}
+function loadUserDB(id){
+  const raw = localStorage.getItem(userDbKey(id));
+  if(raw){ try{ const d=JSON.parse(raw); d.visitLog = d.visitLog||[]; return d; }catch(e){} }
+  const users=getUsers();
+  const nickname = (users[id] && users[id].nickname) || id;
+  const fresh = seed(nickname);
+  localStorage.setItem(userDbKey(id), JSON.stringify(fresh));
+  return fresh;
+}
+function save(){
+  const id=localStorage.getItem(SESSION_KEY);
+  if(id) localStorage.setItem(userDbKey(id), JSON.stringify(DB));
+}
+
+function switchAuthTab(t){
+  document.getElementById("authTabLogin").classList.toggle("on", t==="login");
+  document.getElementById("authTabSignup").classList.toggle("on", t==="signup");
+  document.getElementById("authLoginPane").style.display = t==="login"?"block":"none";
+  document.getElementById("authSignupPane").style.display = t==="signup"?"block":"none";
+}
+function enterApp(id){
+  localStorage.setItem(SESSION_KEY, id);
+  DB = loadUserDB(id);
+  document.getElementById("authScreen").style.display="none";
+  document.getElementById("appRoot").style.display="block";
+  document.getElementById("navUserName").textContent = DB.me.name+" さん";
+  initSelects();
+  loadHpStores();
+  nav("home");
+}
+function login(){
+  const id=document.getElementById("li_id").value.trim();
+  const pw=document.getElementById("li_pw").value;
+  if(!id||!pw){ toast("IDとパスワードを入力してください"); return; }
+  const users=getUsers();
+  if(!users[id] || users[id].password!==pw){ toast("IDまたはパスワードが違います"); return; }
+  enterApp(id);
+}
+function signup(){
+  const id=document.getElementById("su_id").value.trim();
+  const pw=document.getElementById("su_pw").value;
+  const nick=document.getElementById("su_nick").value.trim();
+  if(!id||!pw||!nick){ toast("すべて入力してください"); return; }
+  const users=getUsers();
+  if(users[id]){ toast("このIDは既に使われています"); return; }
+  users[id]={password:pw, nickname:nick};
+  saveUsers(users);
+  enterApp(id);
+}
+function logout(){
+  localStorage.removeItem(SESSION_KEY);
+  location.reload();
 }
 
 /* ============================================================
    ナビゲーション
    ============================================================ */
-const VIEWS = ["home","list","stores","rank","friends","badge"];
+const VIEWS = ["home","search","stores","rank","friends","mypage"];
 function nav(v){
   VIEWS.forEach(x=>{
     document.getElementById("v-"+x).classList.toggle("active", x===v);
     document.getElementById("t-"+x).classList.toggle("on", x===v);
   });
   if(v==="home") renderAki();
-  if(v==="list") renderHpList();
+  if(v==="search") renderSearch();
   if(v==="stores") renderStores();
   if(v==="rank") renderRank();
   if(v==="friends") renderFriends();
-  if(v==="badge") renderBadge();
+  if(v==="mypage") switchMypageTab(mypageTab);
   window.scrollTo(0,0);
 }
-
-function toast(msg){
-  const t=document.getElementById("toast");
-  t.textContent=msg; t.classList.add("show");
-  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("show"),2200);
-}
-function openModal(id){ document.getElementById(id).classList.add("show"); }
-function closeModal(id){ document.getElementById(id).classList.remove("show"); }
 
 /* ============================================================
    お店 登録・一覧（CRUD）
    ============================================================ */
-function initPriceSelect(){
-  const s=document.getElementById("f_price");
-  s.innerHTML = PRICES.map(p=>`<option>${p}</option>`).join("");
+function initSelects(){
+  document.getElementById("f_price").innerHTML = PRICES.map(p=>`<option>${p}</option>`).join("");
+  document.getElementById("f_genre").innerHTML = GENRES.map(g=>`<option>${g}</option>`).join("");
+  document.getElementById("sq_price").innerHTML = `<option value="">こだわらない</option>`+PRICES.map(p=>`<option>${p}</option>`).join("");
+  buildChips("sq_genres", GENRES, true);
 }
-function buildChips(containerId, list){
+function buildChips(containerId, list, autoFilter){
   document.getElementById(containerId).innerHTML =
-    list.map(x=>`<span class="chip" data-v="${x}" onclick="this.classList.toggle('on')">${x}</span>`).join("");
+    list.map(x=>`<span class="chip" data-v="${x}" onclick="this.classList.toggle('on')${autoFilter?';renderSearch()':''}">${x}</span>`).join("");
 }
 function getChips(containerId){
   return [...document.querySelectorAll(`#${containerId} .chip.on`)].map(c=>c.dataset.v);
@@ -412,7 +586,6 @@ function setChips(containerId, vals){
 }
 
 function openStoreModal(store){
-  initPriceSelect();
   buildChips("f_moods", MOODS);
   buildChips("f_companions", COMPANIONS);
   if(store){
@@ -423,6 +596,8 @@ function openStoreModal(store){
     document.getElementById("f_price").value=store.price;
     setChips("f_moods", store.moods);
     setChips("f_companions", store.companions);
+    setChips("f_extra", [store.privateRoom?"private":null, store.anniversary?"anniv":null].filter(Boolean));
+    document.getElementById("f_smoking").value = store.smoking||"不明";
     document.getElementById("f_memo").value=store.memo||"";
     document.getElementById("deleteBtn").style.display="block";
   }else{
@@ -431,6 +606,8 @@ function openStoreModal(store){
     document.getElementById("f_name").value="";
     document.getElementById("f_genre").selectedIndex=0;
     document.getElementById("f_price").selectedIndex=0;
+    setChips("f_extra", []);
+    document.getElementById("f_smoking").selectedIndex=0;
     document.getElementById("f_memo").value="";
     document.getElementById("deleteBtn").style.display="none";
   }
@@ -441,12 +618,16 @@ function saveStore(){
   const name=document.getElementById("f_name").value.trim();
   if(!name){ toast("店名を入力してください"); return; }
   const id=document.getElementById("editId").value;
+  const extra=[...document.querySelectorAll("#f_extra .chip.on")].map(c=>c.dataset.v);
   const data={
     name,
     genre:document.getElementById("f_genre").value,
     price:document.getElementById("f_price").value,
     moods:getChips("f_moods"),
     companions:getChips("f_companions"),
+    privateRoom:extra.includes("private"),
+    anniversary:extra.includes("anniv"),
+    smoking:document.getElementById("f_smoking").value,
     memo:document.getElementById("f_memo").value.trim(),
   };
   if(id){
@@ -471,7 +652,7 @@ function deleteStore(){
 function renderStores(){
   const el=document.getElementById("storeList");
   if(DB.stores.length===0){
-    el.innerHTML=`<div class="empty"><span class="big">🍽️</span>まだお店がありません。<br>お気に入りの一軒を登録してみましょう！</div>`;
+    el.innerHTML=`<div class="empty"><span class="big">🍽️</span>まだお店がありません。<br>「検索」から見つけるか、直接登録してみましょう！</div>`;
     return;
   }
   el.innerHTML = DB.stores.map(s=>storeCard(s)).join("");
@@ -490,7 +671,9 @@ function storeCard(s){
     <div style="margin-top:8px">
       ${(s.moods||[]).map(m=>`<span class="tag">${m}</span>`).join("")}
       ${(s.companions||[]).map(c=>`<span class="tag f">${c}</span>`).join("")}
-      ${s.hpUrl?`<a href="${s.hpUrl}" target="_blank" rel="noopener" class="tag g">🔗 ホットペッパーで見る</a>`:""}
+      ${s.privateRoom?'<span class="tag g">個室</span>':''}
+      ${s.anniversary?'<span class="tag g">記念日向き</span>':''}
+      ${s.hpUrl?`<a href="${s.hpUrl}" target="_blank" rel="noopener" class="tag g">🔗 ホットペッパーで見る</a>`:''}
     </div>
     <div class="row" style="margin-top:12px">
       <button class="btn sm sec" onclick="openVisitModal('${s.id}')">📝 訪問記録</button>
@@ -502,71 +685,70 @@ function storeCard(s){
 function editStore(id){ openStoreModal(DB.stores.find(s=>s.id===id)); }
 
 /* ============================================================
-   周辺のお店一覧（ホットペッパー グルメ Webサービス経由・Netlify Functions）
-   お店の元データは保存せず、タブを開くたびに毎回取得する
+   検索（ホットペッパー グルメ Webサービスから取得した元データを検索）
    ============================================================ */
-function renderHpList(){
-  const el=document.getElementById("hpListArea");
-  el.innerHTML=`<div class="empty">読み込み中… <span class="big">🔄</span></div>`;
-  fetch("/.netlify/functions/hotpepper")
-    .then(res=>{
-      if(!res.ok) return res.json().then(d=>{ throw new Error((d&&d.error)||("HTTP "+res.status)); });
-      return res.json();
-    })
-    .then(data=>{
-      const shops=data.shops||[];
-      hpLastList=shops;
-      if(shops.length===0){
-        el.innerHTML=`<div class="empty"><span class="big">😢</span>お店が見つかりませんでした。</div>`;
-        return;
-      }
-      el.innerHTML =
-        `<div class="hint" style="margin-bottom:10px">「${esc(data.keyword||"")}」で${shops.length}件取得しました</div>` +
-        shops.map(hpShopCard).join("");
-    })
-    .catch(err=>{
-      el.innerHTML=`<div class="empty"><span class="big">⚠️</span>お店一覧を取得できませんでした。<br>${esc(err.message)}</div>`;
-    });
+function renderSearch(){
+  const el=document.getElementById("searchList");
+  if(hpLoadState==="idle" || hpLoadState==="loading"){
+    el.innerHTML=`<div class="empty">読み込み中… <span class="big">🔄</span></div>`;
+    return;
+  }
+  if(hpLoadState==="error"){
+    el.innerHTML=`<div class="empty"><span class="big">⚠️</span>お店一覧を取得できませんでした。<br>${esc(hpError||"")}<div style="height:10px"></div><button class="btn sm sec" onclick="loadHpStores();renderSearch()">再取得</button></div>`;
+    return;
+  }
+  const kw = (document.getElementById("sq_keyword").value||"").trim();
+  const genres = getChips("sq_genres");
+  const price = document.getElementById("sq_price").value;
+  const wantPrivate = document.getElementById("sq_private").classList.contains("on");
+  const wantNoSmoke = document.getElementById("sq_nosmoke").classList.contains("on");
+  const list = hpStores.filter(s=>{
+    if(genres.length && !genres.includes(s.genre)) return false;
+    if(price && s.price!==price) return false;
+    if(wantPrivate && !s.privateRoom) return false;
+    if(wantNoSmoke && s.smoking!=="不可") return false;
+    if(kw && !((s.name||"").includes(kw)||(s.memo||"").includes(kw))) return false;
+    return true;
+  });
+  if(list.length===0){
+    el.innerHTML=`<div class="empty"><span class="big">🔍</span>条件に合うお店が見つかりません。<br>条件を減らしてみてください。</div>`;
+    return;
+  }
+  el.innerHTML = list.map(s=>searchCard(s)).join("");
 }
-function hpShopCard(s){
-  const already = DB.stores.some(x=>x.hpId===s.id);
-  const photo = s.photo ? `<img class="hp-photo" src="${s.photo}" alt="${esc(s.name)}" loading="lazy">
-    <div class="hp-photo-credit">【画像提供：ホットペッパー グルメ】</div>` : "";
+function searchCard(s){
+  const already = DB.stores.some(x=>x.hpId===s.hpId);
+  const photo = s.photoUrl ? `<img class="hp-photo" src="${s.photoUrl}" alt="${esc(s.name)}" loading="lazy"><div class="hp-photo-credit">【画像提供：ホットペッパー グルメ】</div>` : "";
   return `<div class="store">
     <div class="top">
       <div>
         <div class="name">${esc(s.name)}</div>
-        <div class="meta">
-          🍱 ${esc(s.genre||"-")} ・ 💰 ${esc(s.budget||"-")}<br>
-          🕒 ${esc(s.open||"-")}<br>
-          🚶 ${esc(s.access||"-")}<br>
-          ☎ ${esc(s.tel||"-")}
-        </div>
+        <div class="meta">🍱 ${esc(s.genre)} ・ 💰 ${esc(s.price||"-")} ・ 🚶 ${esc(s.walk||"-")}<br>🕒 ${esc(s.hours||"-")} ・ ☎ ${esc(s.phone||"-")}${s.memo?`<br>📝 ${esc(s.memo)}`:""}</div>
       </div>
     </div>
     ${photo}
     <div style="margin-top:8px">
-      <a href="${s.url}" target="_blank" rel="noopener" class="tag g">🔗 ホットペッパーの店舗ページ</a>
-      ${s.privateRoom==="あり"?'<span class="tag">個室あり</span>':""}
-      ${s.nonSmoking==="あり"?'<span class="tag">禁煙席あり</span>':""}
+      <a href="${s.hpUrl}" target="_blank" rel="noopener" class="tag g">🔗 ホットペッパーの店舗ページ</a>
+      ${s.privateRoom?'<span class="tag g">個室あり</span>':''}
+      <span class="tag f">喫煙:${s.smoking}</span>
     </div>
     <div class="row" style="margin-top:12px">
-      <button class="btn sm ${already?"ghost":"sec"}" ${already?"disabled":""} onclick="addFavoriteFromHp('${s.id}')">${already?"✓ 登録済み":"⭐ お気に入りに追加"}</button>
+      <button class="btn sm ${already?"ghost":"sec"}" ${already?"disabled":""} onclick="addFromSearch('${s.id}')">${already?"✓ 登録済み":"⭐ お気に入りに追加"}</button>
     </div>
   </div>`;
 }
-let hpLastList=[];
-function addFavoriteFromHp(id){
-  const shop=hpLastList.find(s=>s.id===id);
-  if(!shop) return;
-  if(DB.stores.some(x=>x.hpId===id)){ toast("すでに登録済みです"); return; }
+function addFromSearch(id){
+  const s=hpStores.find(x=>x.id===id);
+  if(!s) return;
+  if(DB.stores.some(x=>x.hpId===s.hpId)){ toast("すでに登録済みです"); return; }
   DB.stores.push({
-    id:uid(), hpId:shop.id, hpUrl:shop.url,
-    name:shop.name, genre:shop.genre||"その他", price:shop.budget||"",
-    moods:[], companions:[], memo:shop.access||"",
+    id:uid(), hpId:s.hpId, hpUrl:s.hpUrl,
+    name:s.name, genre:s.genre, price:s.price,
+    moods:s.moods||[], companions:s.companions||[], memo:s.memo,
     visited:false, rating:0, spent:0, visitCount:0,
+    privateRoom:!!s.privateRoom, smoking:s.smoking||"不明", anniversary:!!s.anniversary,
   });
-  save(); toast(`${shop.name} をお気に入りに追加しました ⭐`); renderStores();
+  save(); toast(`${s.name} をお気に入りに追加しました ⭐`); renderSearch();
 }
 
 /* ============================================================
@@ -589,7 +771,7 @@ function renderRatingPick(){
   for(let i=1;i<=5;i++){
     const star=document.createElement("span");
     star.textContent=i<=pickRating?"★":"☆";
-    star.style.color="#ffb627";
+    star.style.color="#e0a458";
     star.onclick=()=>{pickRating=i;renderRatingPick();};
     el.appendChild(star);
   }
@@ -602,37 +784,79 @@ function saveVisit(){
   s.spent=parseInt(document.getElementById("v_spent").value)||s.spent||0;
   s.memo=document.getElementById("v_memo").value.trim();
   s.visitCount=(s.visitCount||0)+1;
+  DB.visitLog = DB.visitLog||[];
+  DB.visitLog.push({id:uid(), storeId:id, storeName:s.name, date:new Date().toISOString(), rating:s.rating, spent:s.spent, memo:s.memo});
   save(); closeModal("visitModal"); renderStores();
   toast("訪問を記録しました ✅ 友人へのおすすめ対象に！");
 }
 
 /* ============================================================
-   提案（アキネーター風）
+   提案（アキネーター風・毎回違う質問・上位3件を提案）
    ============================================================ */
-let aki = { step:0, answers:{} };
-const AKI_STEPS = [
-  {key:"mood", q:"質問 1 / 4", text:"今日はどんな気分？", face:"🤔", opts:MOODS},
-  {key:"price", q:"質問 2 / 4", text:"予算はどれくらい？", face:"💰", opts:PRICES},
-  {key:"companion", q:"質問 3 / 4", text:"今日は誰と行く？", face:"👀", opts:COMPANIONS},
-  {key:"count", q:"質問 4 / 4", text:"何人で行く？", face:"🙌", opts:["1人","2人","3〜4人","5人以上"]},
+let aki = { step:0, answers:{}, selected:[] };
+let shownIds = [];
+const QUESTION_POOL = [
+  {key:"mood", text:"今日はどんな気分？", face:"🤔", opts:MOODS, core:true},
+  {key:"price", text:"予算はどれくらい？", face:"💰", opts:PRICES, core:true},
+  {key:"companion", text:"今日は誰と行く？", face:"👀", opts:COMPANIONS, core:true},
+  {key:"genre", text:"食べたいジャンルは？", face:"🍽️", opts:[...GENRES,"こだわらない"]},
+  {key:"count", text:"何人で行く？", face:"🙌", opts:["1人","2人","3〜4人","5人以上"]},
+  {key:"privateRoom", text:"個室希望？", face:"🚪", opts:["個室希望","こだわらない"]},
+  {key:"smoking", text:"タバコの煙は平気？", face:"🚬", opts:["禁煙がいい","気にしない"]},
+  {key:"anniversary", text:"今日はどんな日？", face:"🎉", opts:["特別な日(記念日)","普段使い"]},
 ];
 
 function renderAki(){
-  aki={step:0, answers:{}};
+  shownIds=[];
+  const core = QUESTION_POOL.filter(q=>q.core);
+  const extraPool = QUESTION_POOL.filter(q=>!q.core).sort(()=>Math.random()-0.5);
+  const extra = extraPool.slice(0, 1+Math.floor(Math.random()*2));
+  aki = { step:0, answers:{}, selected:[...core,...extra].sort(()=>Math.random()-0.5) };
   drawAkiStep();
+}
+function candidatePool(){
+  let mine = DB.stores.map(s=>({...s,_src:"mine"}));
+  let frnd = [];
+  DB.friends.forEach(f=>{
+    (f.stores||[]).forEach(st=>{
+      frnd.push({...st, _src:"friend", _by:f.name, id:"fr_"+f.id+"_"+st.name});
+    });
+  });
+  let hp = hpStores.map(s=>({...s,_src:"hotpepper"}));
+  return [...mine,...frnd,...hp];
+}
+function scoreStore(s,a){
+  let sc=0;
+  if(a.mood && (s.moods||[]).includes(a.mood)) sc+=3;
+  if(a.price && s.price===a.price) sc+=2;
+  if(a.companion && (s.companions||[]).includes(a.companion)) sc+=2;
+  if(a.genre && a.genre!=="こだわらない" && s.genre===a.genre) sc+=2;
+  if(a.privateRoom==="個室希望" && s.privateRoom) sc+=2;
+  if(a.smoking==="禁煙がいい"){ if(s.smoking==="不可") sc+=2; else if(s.smoking==="可") sc-=1; }
+  if(a.anniversary==="特別な日(記念日)" && s.anniversary) sc+=2;
+  if(s._src==="friend") sc+=1;
+  return sc;
+}
+function candidateCountSoFar(){
+  const pool=candidatePool();
+  pool.forEach(s=>s._score=scoreStore(s,aki.answers));
+  const c=pool.filter(s=>s._score>0).length;
+  return c || pool.length;
 }
 function drawAkiStep(){
   const area=document.getElementById("akiArea");
-  const st=AKI_STEPS[aki.step];
-  const pct = (aki.step/AKI_STEPS.length)*100;
+  const st=aki.selected[aki.step];
+  const pct=(aki.step/aki.selected.length)*100;
+  const cnt=candidateCountSoFar();
   area.innerHTML = `
     <div class="card aki-stage">
       <div class="aki-face">${st.face}</div>
       <div class="aki-bubble">
-        <div class="aki-q">${st.q}</div>
+        <div class="aki-q">質問 ${aki.step+1} / ${aki.selected.length}</div>
         <div>${st.text}</div>
       </div>
       <div class="progress"><i style="width:${pct}%"></i></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px">現在の候補: 約${cnt}件</div>
       <div style="margin-top:6px">
         ${st.opts.map(o=>`<button class="opt" onclick="answerAki('${st.key}','${o}')">${o}</button>`).join("")}
       </div>
@@ -641,89 +865,63 @@ function drawAkiStep(){
 function answerAki(key,val){
   aki.answers[key]=val;
   aki.step++;
-  if(aki.step<AKI_STEPS.length){ drawAkiStep(); }
+  if(aki.step<aki.selected.length){ drawAkiStep(); }
   else { proposeStore(true); }
 }
 
-/* 条件に合う候補を集める（自分の店＋友人おすすめ） */
-function candidatePool(){
-  const a=aki.answers;
-  let mine = DB.stores.map(s=>({...s, _src:"mine"}));
-  let frnd = [];
-  DB.friends.forEach(f=>{
-    (f.stores||[]).forEach(st=>{
-      frnd.push({...st, _src:"friend", _by:f.name, id:"fr_"+f.id+"_"+st.name});
-    });
-  });
-  let all=[...mine,...frnd];
-  // スコアリング（完全一致を優先しつつ、緩めにフォールバック）
-  function score(s){
-    let sc=0;
-    if(a.mood && (s.moods||[]).includes(a.mood)) sc+=3;
-    if(a.price && s.price===a.price) sc+=2;
-    if(a.companion && (s.companions||[]).includes(a.companion)) sc+=2;
-    if(s._src==="friend") sc+=1; // 友人のおすすめは少し加点
-    return sc;
-  }
-  all.forEach(s=>s._score=score(s));
-  const matched = all.filter(s=>s._score>0).sort((x,y)=>y._score-x._score);
-  return matched.length? matched : all; // 全く合わなければ全件から
-}
-
-let lastProposed=null;
 function proposeStore(first){
   const pool=candidatePool();
-  if(pool.length===0){
+  pool.forEach(s=>s._score=scoreStore(s,aki.answers));
+  const scored = pool.filter(s=>s._score>0).sort((x,y)=>y._score-x._score);
+  const source = scored.length ? scored : [...pool].sort(()=>Math.random()-0.5);
+  let avail = source.filter(s=>!shownIds.includes(s.id));
+  if(avail.length<3){ shownIds=[]; avail=source; }
+  const seen=new Set(), picks=[];
+  for(const s of avail){
+    if(seen.has(s.id)) continue;
+    seen.add(s.id); picks.push(s);
+    if(picks.length>=3) break;
+  }
+  if(picks.length===0){
     document.getElementById("akiArea").innerHTML=`
       <div class="card empty"><span class="big">😢</span>
-      提案できる店がまだありません。<br>「お店」タブから登録してみてください！</div>
+      提案できる店がまだありません。<br>「検索」や「お店」タブから登録してみてください！</div>
       <button class="btn" onclick="renderAki()">条件を選び直す</button>`;
     return;
   }
-  // 上位候補からランダム（再提案で別の店）
-  let topScore=pool[0]._score;
-  let top=pool.filter(s=>s._score===topScore);
-  let pick;
-  if(top.length>1 && lastProposed){
-    const others=top.filter(s=>s.id!==lastProposed);
-    pick=(others.length?others:top)[Math.floor(Math.random()*(others.length?others.length:top.length))];
-  }else if(pool.length>1 && lastProposed){
-    const others=pool.filter(s=>s.id!==lastProposed);
-    pick=others[Math.floor(Math.random()*others.length)]||pool[0];
-  }else{
-    pick=top[Math.floor(Math.random()*top.length)];
-  }
-  lastProposed=pick.id;
-  drawResult(pick, first);
+  picks.forEach(s=>shownIds.push(s.id));
+  drawResults(picks, first);
 }
 
-function drawResult(s, first){
+function drawResults(list, first){
   const a=aki.answers;
-  const faceLine = first
-    ? `<div class="result-emoji">✨</div><div style="font-size:13px;color:var(--muted)">あなたへのおすすめは…</div>`
-    : `<div class="result-emoji">😤</div><div style="font-size:13px;color:var(--muted)">じゃあ…これはどう！？</div>`;
-  const friendTag = s._src==="friend" ? `<div><span class="tag g">👥 ${esc(s._by)}さんのおすすめ</span></div>` : "";
-  const stars = s.rating? `<div class="stars" style="font-size:18px">${"★".repeat(s.rating)}${"☆".repeat(5-s.rating)}</div>`:"";
-  document.getElementById("akiArea").innerHTML=`
-    <div class="card result-card">
-      ${faceLine}
-      <div class="rname">${esc(s.name)}</div>
-      ${friendTag}
-      ${stars}
-      <div class="meta" style="font-size:13px;color:var(--muted);margin:8px 0;line-height:1.8">
-        🍱 ${s.genre} ・ 💰 ${s.price}<br>${s.memo?("📝 "+esc(s.memo)):""}
-      </div>
-      <div style="font-size:12px;color:var(--muted);margin-top:6px">
-        条件: ${a.mood} / ${a.price} / ${a.companion} / ${a.count}
-      </div>
+  const summary = aki.selected.map(q=>a[q.key]).filter(Boolean).join(" / ");
+  const cards = list.map((s,i)=>{
+    const srcTag = s._src==="friend" ? `<span class="tag g">👥 ${esc(s._by)}さんのおすすめ</span>`
+      : s._src==="hotpepper" ? `<span class="tag f">🔍 三宮エリア</span>` : "";
+    const actionBtn = s._src==="mine"
+      ? `<button class="btn sm" onclick="openVisitModal('${s.id}')">🍴 ここに決定</button>`
+      : s._src==="friend"
+      ? `<button class="btn sm sec" onclick="toast('友人のおすすめ店！ぜひ行ってみて 😋')">🍴 行ってみる</button>`
+      : `<button class="btn sm sec" onclick="addFromSearch('${s.id}')">⭐ お気に入りに追加</button>`;
+    return `<div class="store">
+      <div class="top"><div>
+        <div class="name">${i+1}位　${esc(s.name)}</div>
+        <div class="meta">🍱 ${s.genre} ・ 💰 ${s.price}${s.memo?`<br>📝 ${esc(s.memo)}`:""}</div>
+      </div></div>
+      <div style="margin-top:6px">${srcTag}</div>
+      <div class="row" style="margin-top:10px">${actionBtn}</div>
+    </div>`;
+  }).join("");
+  document.getElementById("akiArea").innerHTML = `
+    <div class="card" style="text-align:center;padding:18px">
+      <div class="result-emoji">${first?"✨":"😤"}</div>
+      <div style="font-size:13px;color:var(--muted)">${first?"あなたへのおすすめ ベスト"+list.length:"じゃあ、こんなのはどう！？"}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px">条件: ${esc(summary)}</div>
     </div>
-    <div class="row">
-      <button class="btn sec" onclick="proposeStore(false)">🔄 別の店を見る</button>
-      ${s._src==="mine"
-        ? `<button class="btn" onclick="openVisitModal('${s.id}')">🍴 ここに決定！</button>`
-        : `<button class="btn" onclick="toast('友人のおすすめ店！ぜひ行ってみて 😋')">🍴 行ってみる</button>`}
-    </div>
-    <div style="height:10px"></div>
+    ${cards}
+    <button class="btn sec" onclick="proposeStore(false)">🔄 別の3件を見る</button>
+    <div style="height:8px"></div>
     <button class="btn ghost" onclick="renderAki()">↩ 最初から選び直す</button>`;
 }
 
@@ -740,7 +938,6 @@ function switchRank(m){
 function renderRank(){
   const el=document.getElementById("rankList");
   if(rankMode==="person"){
-    // あなた＋友人を、使った金額/訪問回数で
     const mySpent=DB.stores.reduce((a,s)=>a+(s.spent||0)*(s.visitCount||0?1:0),0);
     const myVisits=DB.stores.reduce((a,s)=>a+(s.visitCount||0),0);
     let people=[{name:DB.me.name+"（あなた）",spent:mySpent,visits:myVisits,me:true}];
@@ -756,11 +953,9 @@ function renderRank(){
         <div class="rank-val">¥${p.spent.toLocaleString()}</div>
       </div>`).join("");
   }else{
-    // 店ランキング：自分＋友人の店を訪問回数/評価で
     let stores=[];
     DB.stores.forEach(s=>{ if(s.visited) stores.push({name:s.name,genre:s.genre,count:s.visitCount||1,rating:s.rating||0}); });
     DB.friends.forEach(f=>(f.stores||[]).forEach(s=>stores.push({name:s.name,genre:s.genre,count:1,rating:s.rating||0,by:f.name})));
-    // 同名店をまとめる
     const map={};
     stores.forEach(s=>{
       if(!map[s.name]) map[s.name]={name:s.name,genre:s.genre,count:0,rsum:0,rn:0};
@@ -808,7 +1003,6 @@ function addFriend(){
   const id=document.getElementById("friendIdInput").value.trim();
   if(!id){ toast("友人IDを入力してください"); return; }
   if(DB.friends.find(f=>f.id===id)){ toast("すでに連携済みです"); return; }
-  // デモ: ランダムな名前とおすすめ店を割り当て
   const name=SAMPLE_NAMES[Math.floor(Math.random()*SAMPLE_NAMES.length)];
   const n=1+Math.floor(Math.random()*2);
   const shuffled=[...SAMPLE_FRIEND_STORES].sort(()=>Math.random()-0.5).slice(0,n);
@@ -825,7 +1019,6 @@ function removeFriend(id){
 }
 
 function renderFriends(){
-  // 連携リスト
   const fl=document.getElementById("friendList");
   if(DB.friends.length===0){
     fl.innerHTML=`<div class="empty"><span class="big">🧑‍🤝‍🧑</span>まだ友人がいません。<br>IDを入力して連携してみましょう！</div>`;
@@ -845,7 +1038,6 @@ function renderFriends(){
         </div>
       </div>`).join("");
   }
-  // DM
   const dl=document.getElementById("dmList");
   if(!DB.dms || DB.dms.length===0){
     dl.innerHTML=`<div class="empty"><span class="big">🔥</span>飯テロの受信はまだありません</div>`;
@@ -871,7 +1063,6 @@ function reactDm(id,r){
   toast(r==="good"?"「おいしかった！」を送信 😋":"「バカ舌やん」を送信 😖 通知が届きました");
 }
 
-/* 飯テロ送信モーダル */
 function openSendModal(storeId){
   const s=DB.stores.find(s=>s.id===storeId);
   document.getElementById("sendStoreId").value=storeId;
@@ -890,15 +1081,67 @@ function openSendModal(storeId){
 function sendTero(friendId,storeId){
   const f=DB.friends.find(f=>f.id===friendId);
   const s=DB.stores.find(s=>s.id===storeId);
-  // 自分が送った飯テロを、デモとして相手から返ってくる形＝受信箱にも残す
   DB.dms.unshift({id:uid(),fromName:DB.me.name+"→"+f.name,storeName:s.name,genre:s.genre,msg:"これ食べに行こう！🔥（"+f.name+"さんへ送信済み）",reaction:null});
   save(); closeModal("sendModal");
   toast(`${f.name}さんに飯テロを送りつけました 🔥`);
 }
 
 /* ============================================================
-   称号機能（訪問傾向から自動付与）
+   マイページ（称号・履歴・グラフ）
    ============================================================ */
+let mypageTab="badge";
+function switchMypageTab(t){
+  mypageTab=t;
+  ["badge","history","graph"].forEach(x=>{
+    document.getElementById("mp-"+x).style.display = (x===t)?"block":"none";
+    document.getElementById("mpTab-"+x).classList.toggle("on", x===t);
+  });
+  if(t==="badge") renderBadge();
+  if(t==="history") renderHistory();
+  if(t==="graph") renderGraph();
+}
+function renderHistory(){
+  const el=document.getElementById("historyList");
+  const log=(DB.visitLog||[]).slice().sort((a,b)=> b.date.localeCompare(a.date));
+  if(log.length===0){
+    el.innerHTML=`<div class="empty"><span class="big">🕰️</span>訪問記録がまだありません。<br>お店を訪問記録すると、ここに残ります。</div>`;
+    return;
+  }
+  el.innerHTML = log.map(v=>`
+    <div class="dm">
+      <div class="from">${new Date(v.date).toLocaleDateString("ja-JP")}</div>
+      <div style="font-weight:bold">${esc(v.storeName)} <span class="stars">${"★".repeat(v.rating)}${"☆".repeat(5-v.rating)}</span></div>
+      <div style="font-size:13px;margin-top:4px">💴 ¥${(v.spent||0).toLocaleString()}${v.memo?(" ・ 📝 "+esc(v.memo)):""}</div>
+    </div>`).join("");
+}
+function svgBarChart(data){
+  if(!data.length) return `<div class="hint">まだデータがありません</div>`;
+  const w=280,h=140,pad=22;
+  const max=Math.max(1,...data.map(d=>d.value));
+  const slot=(w-pad*2)/data.length;
+  const bw=Math.max(10,slot-10);
+  const bars=data.map((d,i)=>{
+    const bh=(d.value/max)*(h-pad*2-16);
+    const x=pad+i*slot+(slot-bw)/2;
+    const y=h-pad-bh;
+    return `<rect x="${x}" y="${y}" width="${bw}" height="${bh}" rx="4" style="fill:${d.color||'var(--primary)'}"/>
+      <text x="${x+bw/2}" y="${h-pad+13}" font-size="9" text-anchor="middle" style="fill:var(--muted)">${esc(d.label)}</text>
+      <text x="${x+bw/2}" y="${y-4}" font-size="10" text-anchor="middle" style="fill:var(--text)">${d.value}</text>`;
+  }).join("");
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:140px">${bars}</svg>`;
+}
+function renderGraph(){
+  const c=calcTendency();
+  const genreData=Object.entries(c.genre).map(([label,value])=>({label,value}));
+  document.getElementById("graphGenre").innerHTML = svgBarChart(genreData);
+  const mySpent=DB.stores.reduce((a,s)=>a+(s.spent||0)*(s.visitCount||0?1:0),0);
+  const cmp=[{label:DB.me.name,value:mySpent,color:"var(--primary)"}].concat(
+    DB.friends.map(f=>({label:f.name,value:f.spent||0,color:"var(--accent)"}))
+  );
+  document.getElementById("graphCompare").innerHTML = svgBarChart(cmp);
+}
+
+/* 称号機能（訪問傾向から自動付与） */
 const TITLES = [
   {id:"chill", icon:"☕", name:"チル重視・癒し系", desc:"カフェ系の訪問が多いあなた",
     test:c=>c.genre["カフェ"]>=2 || c.mood["デート"]>=2},
@@ -915,7 +1158,6 @@ const TITLES = [
   {id:"foodie", icon:"⭐", name:"舌の肥えた評論家", desc:"★5評価をいくつも付けた",
     test:c=>c.fiveStars>=2},
 ];
-
 function calcTendency(){
   const c={genre:{},mood:{},comp:{},visitedCount:0,highPrice:0,fiveStars:0};
   MOODS.forEach(m=>c.mood[m]=0);
@@ -950,12 +1192,18 @@ function renderBadge(){
 }
 
 /* ============================================================
-   ユーティリティ
+   起動
    ============================================================ */
-function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
-
-/* 起動 */
-renderAki();
+function boot(){
+  const id = localStorage.getItem(SESSION_KEY);
+  if(id && getUsers()[id]){
+    enterApp(id);
+  }else{
+    document.getElementById("authScreen").style.display="flex";
+    document.getElementById("appRoot").style.display="none";
+  }
+}
+boot();
 </script>
 </body>
 </html>
