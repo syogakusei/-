@@ -242,6 +242,20 @@
       <span class="chip" id="sq_private" onclick="this.classList.toggle('on');renderSearch()">個室あり</span>
       <span class="chip" id="sq_nosmoke" onclick="this.classList.toggle('on');renderSearch()">禁煙</span>
     </div>
+    <button class="btn sm ghost" id="sq_advToggle" style="width:auto;margin-top:10px" onclick="toggleAdvSearch()">＋ 詳細検索</button>
+    <div id="sq_advanced" style="display:none;margin-top:6px">
+      <label class="fld">時間帯</label>
+      <div class="chips">
+        <span class="chip" id="sq_lunch" onclick="this.classList.toggle('on');renderSearch()">ランチ営業あり</span>
+        <span class="chip" id="sq_midnight" onclick="this.classList.toggle('on');renderSearch()">深夜営業</span>
+      </div>
+      <label class="fld">設備・支払い</label>
+      <div class="chips">
+        <span class="chip" id="sq_card" onclick="this.classList.toggle('on');renderSearch()">カード利用可</span>
+        <span class="chip" id="sq_parking" onclick="this.classList.toggle('on');renderSearch()">駐車場あり</span>
+        <span class="chip" id="sq_wifi" onclick="this.classList.toggle('on');renderSearch()">Wi-Fiあり</span>
+      </div>
+    </div>
   </div>
   <div id="searchList"></div>
   <div class="hp-credit">Powered by <a href="http://webservice.recruit.co.jp/" target="_blank" rel="noopener">ホットペッパーグルメ Webサービス</a></div>
@@ -448,6 +462,11 @@ function loadHpStores(){
         privateRoom: s.privateRoom==="あり",
         smoking: s.nonSmoking==="あり" ? "不可" : "可",
         anniversary:false,
+        lunch: s.lunch==="あり",
+        card: s.card==="利用可",
+        parking: (s.parking||"").startsWith("あり"),
+        wifi: s.wifi==="あり",
+        midnight: s.midnight==="営業している",
         moods:[], companions:[],
         memo:s.catch||s.access||"",
       }));
@@ -684,11 +703,21 @@ function renderSearch(){
   const price = document.getElementById("sq_price").value;
   const wantPrivate = document.getElementById("sq_private").classList.contains("on");
   const wantNoSmoke = document.getElementById("sq_nosmoke").classList.contains("on");
+  const wantLunch = document.getElementById("sq_lunch").classList.contains("on");
+  const wantMidnight = document.getElementById("sq_midnight").classList.contains("on");
+  const wantCard = document.getElementById("sq_card").classList.contains("on");
+  const wantParking = document.getElementById("sq_parking").classList.contains("on");
+  const wantWifi = document.getElementById("sq_wifi").classList.contains("on");
   const list = hpStores.filter(s=>{
     if(genres.length && !genres.includes(s.genre)) return false;
     if(price && s.price!==price) return false;
     if(wantPrivate && !s.privateRoom) return false;
     if(wantNoSmoke && s.smoking!=="不可") return false;
+    if(wantLunch && !s.lunch) return false;
+    if(wantMidnight && !s.midnight) return false;
+    if(wantCard && !s.card) return false;
+    if(wantParking && !s.parking) return false;
+    if(wantWifi && !s.wifi) return false;
     if(kw && !((s.name||"").includes(kw)||(s.memo||"").includes(kw))) return false;
     return true;
   });
@@ -697,6 +726,12 @@ function renderSearch(){
     return;
   }
   el.innerHTML = list.map(s=>searchCard(s)).join("");
+}
+function toggleAdvSearch(){
+  const el=document.getElementById("sq_advanced");
+  const opening = el.style.display==="none";
+  el.style.display = opening?"block":"none";
+  document.getElementById("sq_advToggle").textContent = opening?"－ 詳細検索を閉じる":"＋ 詳細検索";
 }
 function searchCard(s){
   const already = DB.stores.some(x=>x.hpId===s.hpId);
@@ -713,6 +748,11 @@ function searchCard(s){
       <a href="${s.hpUrl}" target="_blank" rel="noopener" class="tag g">🔗 ホットペッパーの店舗ページ</a>
       ${s.privateRoom?'<span class="tag g">個室あり</span>':''}
       <span class="tag f">喫煙:${s.smoking}</span>
+      ${s.lunch?'<span class="tag">ランチ営業</span>':''}
+      ${s.midnight?'<span class="tag">深夜営業</span>':''}
+      ${s.card?'<span class="tag">カード可</span>':''}
+      ${s.parking?'<span class="tag">駐車場あり</span>':''}
+      ${s.wifi?'<span class="tag">Wi-Fi</span>':''}
     </div>
     <div class="row" style="margin-top:12px">
       <button class="btn sm ${already?"ghost":"sec"}" ${already?"disabled":""} onclick="addFromSearch('${s.id}')">${already?"✓ 登録済み":"⭐ お気に入りに追加"}</button>
@@ -799,6 +839,7 @@ const QUESTION_POOL = [
   {key:"privateRoom", text:"個室希望？", face:"🚪", opts:["個室希望","こだわらない"]},
   {key:"smoking", text:"タバコの煙は平気？", face:"🚬", opts:["禁煙がいい","気にしない"]},
   {key:"anniversary", text:"今日はどんな日？", face:"🎉", opts:["特別な日(記念日)","普段使い"]},
+  {key:"timeOfDay", text:"ランチ？ディナー？", face:"🕐", opts:["ランチ利用","ディナー利用"]},
 ];
 
 function renderAki(){
@@ -829,14 +870,28 @@ function scoreStore(s,a){
   if(a.privateRoom==="個室希望" && s.privateRoom) sc+=2;
   if(a.smoking==="禁煙がいい"){ if(s.smoking==="不可") sc+=2; else if(s.smoking==="可") sc-=1; }
   if(a.anniversary==="特別な日(記念日)" && s.anniversary) sc+=2;
+  if(a.timeOfDay==="ランチ利用" && s.lunch) sc+=2;
   if(s._src==="friend") sc+=1;
   return sc;
 }
+/* 質問ごとに「その条件に合っているか」を判定（候補数の絞り込み表示用） */
+function matchesAnswer(s,key,val){
+  switch(key){
+    case "mood": return (s.moods||[]).includes(val);
+    case "price": return s.price===val;
+    case "companion": return (s.companions||[]).includes(val);
+    case "genre": return val==="こだわらない" || s.genre===val;
+    case "privateRoom": return val!=="個室希望" || !!s.privateRoom;
+    case "smoking": return val!=="禁煙がいい" || s.smoking==="不可";
+    case "anniversary": return val!=="特別な日(記念日)" || !!s.anniversary;
+    case "timeOfDay": return val!=="ランチ利用" || !!s.lunch;
+    default: return true; // count など、店データに対応項目がない質問は絞り込みに使わない
+  }
+}
 function candidateCountSoFar(){
   const pool=candidatePool();
-  pool.forEach(s=>s._score=scoreStore(s,aki.answers));
-  const c=pool.filter(s=>s._score>0).length;
-  return c || pool.length;
+  const answered=Object.entries(aki.answers);
+  return pool.filter(s=>answered.every(([k,v])=>matchesAnswer(s,k,v))).length;
 }
 function drawAkiStep(){
   const area=document.getElementById("akiArea");
@@ -851,7 +906,7 @@ function drawAkiStep(){
         <div>${st.text}</div>
       </div>
       <div class="progress"><i style="width:${pct}%"></i></div>
-      <div style="font-size:11px;color:var(--muted);margin-top:2px">現在の候補: 約${cnt}件</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px">現在の候補: ${cnt}件</div>
       <div style="margin-top:6px">
         ${st.opts.map(o=>`<button class="opt" onclick="answerAki('${st.key}','${o}')">${o}</button>`).join("")}
       </div>

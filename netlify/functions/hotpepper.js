@@ -76,6 +76,11 @@ exports.handler = async function () {
     photo: s.photo && s.photo.pc && (s.photo.pc.l || s.photo.pc.m || s.photo.pc.s),
     privateRoom: s.private_room,
     nonSmoking: s.non_smoking,
+    lunch: s.lunch,
+    card: s.card,
+    parking: s.parking,
+    wifi: s.wifi,
+    midnight: s.midnight,
   }));
 
   return {
