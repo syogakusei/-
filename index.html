@@ -185,19 +185,19 @@
       <button id="authTabSignup" onclick="switchAuthTab('signup')">新規登録</button>
     </div>
     <div id="authLoginPane">
-      <label class="fld">ユーザーID</label>
-      <input type="text" id="li_id" placeholder="例: taro123">
+      <label class="fld">メールアドレス</label>
+      <input type="email" id="li_id" placeholder="例: taro@example.com">
       <label class="fld">パスワード</label>
       <input type="password" id="li_pw" placeholder="パスワード">
       <div style="height:14px"></div>
       <button class="btn" onclick="login()">ログイン</button>
-      <div class="hint" style="text-align:center;margin-top:10px">お試しの場合は「新規登録」から好きなIDで始められます</div>
+      <div class="hint" style="text-align:center;margin-top:10px">お試しの場合は「新規登録」からはじめられます</div>
     </div>
     <div id="authSignupPane" style="display:none">
-      <label class="fld">ユーザーID</label>
-      <input type="text" id="su_id" placeholder="半角英数字など">
+      <label class="fld">メールアドレス</label>
+      <input type="email" id="su_id" placeholder="例: taro@example.com">
       <label class="fld">パスワード</label>
-      <input type="password" id="su_pw" placeholder="パスワード">
+      <input type="password" id="su_pw" placeholder="6文字以上">
       <label class="fld">ニックネーム</label>
       <input type="text" id="su_nick" placeholder="表示名">
       <div style="height:14px"></div>
@@ -275,12 +275,12 @@
   </div>
   <div id="friendsPane">
     <div class="card">
-      <label class="fld">友人IDを入力して連携</label>
+      <label class="fld">友人のメールアドレスを入力して申請</label>
       <div class="row">
-        <input type="text" id="friendIdInput" placeholder="例: tomo123">
-        <button class="btn sm" style="flex:0 0 auto;padding:11px 16px" onclick="addFriend()">連携</button>
+        <input type="email" id="friendIdInput" placeholder="例: tomo@example.com">
+        <button class="btn sm" style="flex:0 0 auto;padding:11px 16px" onclick="sendFriendRequest()">申請</button>
       </div>
-      <div class="hint">友人の訪問済み店が、提案に「友人おすすめ」として混ざります。お試し用に好きなIDで連携できます。</div>
+      <div class="hint">相手が承認すると友人になり、訪問済み店が提案に「友人おすすめ」として混ざります。</div>
     </div>
     <div id="friendList"></div>
   </div>
@@ -397,23 +397,25 @@
 
 <div id="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ============================================================
    今日何食べる？ v2 — データ層
-   HTML/CSS/JSのみ・サーバー不要（localStorageに保存）
-   ・ログイン機能とお店データ(HotPepper想定)はダミー実装
-     → 実際のSupabase / ホットペッパーAPI連携は別工程で行う
+   認証・データ保存は Supabase を使用。お店の元データ(HotPepper)は
+   Netlify Functions 経由で毎回取得する（保存しない）
    ============================================================ */
 const MOODS = ["お腹いっぱい","デート","飲み会","ご褒美"];
 const COMPANIONS = ["友人","家族","恋人","恋人候補"];
 const PRICES = ["～1,000円","1,000～2,000円","2,000～3,000円","3,000～4,000円","4,000～5,000円","5,000～6,000円"];
 const GENRES = ["和食","洋食","中華","ラーメン","居酒屋","カフェ","焼肉","ファストフード","エスニック","スイーツ","その他"];
-const USERS_KEY = "konnani_tabe_v2_users";
-const SESSION_KEY = "konnani_tabe_v2_session";
 
-let DB = null;
+const SUPABASE_URL = "https://dhirgrxgfzeudszpdmvc.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_-em7nt1A7eXTmtnYh-E87g_FsBOUrej";
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+let currentUser = null;
+let DB = { me:{name:""}, stores:[], friends:[], friendRequestsIn:[], dms:[], visitLog:[] };
+
 function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
 function toast(msg){
   const t=document.getElementById("toast");
@@ -459,90 +461,52 @@ function loadHpStores(){
 }
 
 /* ============================================================
-   ユーザー認証（ローカルのみ・デモ実装）
+   ユーザー認証（Supabase Auth・メールアドレス+パスワード）
    ============================================================ */
-function getUsers(){ try{ return JSON.parse(localStorage.getItem(USERS_KEY))||{}; }catch(e){ return {}; } }
-function saveUsers(u){ localStorage.setItem(USERS_KEY, JSON.stringify(u)); }
-function userDbKey(id){ return "konnani_tabe_v2_data_"+id; }
-
-function seed(nickname){
-  const me_stores = [
-    {id:uid(),name:"名物からあげ食堂",genre:"和食",price:"～1,000円",moods:["お腹いっぱい"],companions:["友人","家族"],memo:"ボリューム満点。学生でにぎやか。",visited:true,rating:5,spent:980,visitCount:4,privateRoom:false,anniversary:false,smoking:"不可"},
-    {id:uid(),name:"夜景イタリアン Luna",genre:"洋食",price:"4,000～5,000円",moods:["デート","ご褒美"],companions:["恋人","恋人候補"],memo:"雰囲気抜群。記念日に。",visited:true,rating:4,spent:4500,visitCount:1,privateRoom:true,anniversary:true,smoking:"不可"},
-    {id:uid(),name:"赤提灯 とり吉",genre:"居酒屋",price:"3,000～4,000円",moods:["飲み会"],companions:["友人"],memo:"飲み放題あり。大人数OK。",visited:false,rating:0,spent:0,visitCount:0,privateRoom:false,anniversary:false,smoking:"可"},
-    {id:uid(),name:"癒しカフェ もくれん",genre:"カフェ",price:"1,000～2,000円",moods:["デート","ご褒美"],companions:["恋人候補","友人"],memo:"静かでチルできる。",visited:true,rating:4,spent:1300,visitCount:3,privateRoom:false,anniversary:false,smoking:"不可"},
-  ];
-  return {
-    me:{name:nickname||"あなた"},
-    stores: me_stores,
-    friends:[
-      {id:"yuta01",name:"ゆうた",stores:[
-        {name:"がっつり二郎系 武蔵",genre:"ラーメン",price:"1,000～2,000円",moods:["お腹いっぱい"],companions:["友人"],rating:5,memo:"麺マシでも完食できる神店"},
-        {name:"隠れ家バル ソル",genre:"洋食",price:"3,000～4,000円",moods:["デート","飲み会"],companions:["恋人","友人"],rating:4,memo:"ワインが豊富"}
-      ],spent:8200,visits:6},
-      {id:"mai02",name:"まい",stores:[
-        {name:"スイーツ天国 ぷりん",genre:"スイーツ",price:"1,000～2,000円",moods:["ご褒美","デート"],companions:["友人","恋人候補"],rating:5,memo:"パフェが映える"}
-      ],spent:5400,visits:4},
-    ],
-    dms:[
-      {id:uid(),fromName:"ゆうた",storeName:"がっつり二郎系 武蔵",genre:"ラーメン",msg:"これ食べに行こうぜ🍜",reaction:null}
-    ],
-    titlesSeen:[],
-    visitLog:[]
-  };
-}
-function loadUserDB(id){
-  const raw = localStorage.getItem(userDbKey(id));
-  if(raw){ try{ const d=JSON.parse(raw); d.visitLog = d.visitLog||[]; return d; }catch(e){} }
-  const users=getUsers();
-  const nickname = (users[id] && users[id].nickname) || id;
-  const fresh = seed(nickname);
-  localStorage.setItem(userDbKey(id), JSON.stringify(fresh));
-  return fresh;
-}
-function save(){
-  const id=localStorage.getItem(SESSION_KEY);
-  if(id) localStorage.setItem(userDbKey(id), JSON.stringify(DB));
-}
-
 function switchAuthTab(t){
   document.getElementById("authTabLogin").classList.toggle("on", t==="login");
   document.getElementById("authTabSignup").classList.toggle("on", t==="signup");
   document.getElementById("authLoginPane").style.display = t==="login"?"block":"none";
   document.getElementById("authSignupPane").style.display = t==="signup"?"block":"none";
 }
-function enterApp(id){
-  localStorage.setItem(SESSION_KEY, id);
-  DB = loadUserDB(id);
+async function enterApp(user){
+  currentUser = user;
   document.getElementById("authScreen").style.display="none";
   document.getElementById("appRoot").style.display="block";
-  document.getElementById("navUserName").textContent = DB.me.name+" さん";
   initSelects();
+  await loadProfile();
+  document.getElementById("navUserName").textContent = DB.me.name+" さん";
   loadHpStores();
+  await Promise.all([loadStores(), loadFriends(), loadDms(), loadVisitLog()]);
   nav("home");
 }
-function login(){
-  const id=document.getElementById("li_id").value.trim();
+async function login(){
+  const email=document.getElementById("li_id").value.trim();
   const pw=document.getElementById("li_pw").value;
-  if(!id||!pw){ toast("IDとパスワードを入力してください"); return; }
-  const users=getUsers();
-  if(!users[id] || users[id].password!==pw){ toast("IDまたはパスワードが違います"); return; }
-  enterApp(id);
+  if(!email||!pw){ toast("メールアドレスとパスワードを入力してください"); return; }
+  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: pw });
+  if(error){ toast(error.message); return; }
+  await enterApp(data.user);
 }
-function signup(){
-  const id=document.getElementById("su_id").value.trim();
+async function signup(){
+  const email=document.getElementById("su_id").value.trim();
   const pw=document.getElementById("su_pw").value;
   const nick=document.getElementById("su_nick").value.trim();
-  if(!id||!pw||!nick){ toast("すべて入力してください"); return; }
-  const users=getUsers();
-  if(users[id]){ toast("このIDは既に使われています"); return; }
-  users[id]={password:pw, nickname:nick};
-  saveUsers(users);
-  enterApp(id);
+  if(!email||!pw||!nick){ toast("すべて入力してください"); return; }
+  const { data, error } = await supabaseClient.auth.signUp({
+    email, password: pw, options:{ data:{ nickname: nick } }
+  });
+  if(error){ toast(error.message); return; }
+  if(!data.session){ toast("確認メールを送信しました。メールを確認してからログインしてください"); return; }
+  await enterApp(data.user);
 }
-function logout(){
-  localStorage.removeItem(SESSION_KEY);
+async function logout(){
+  await supabaseClient.auth.signOut();
   location.reload();
+}
+async function loadProfile(){
+  const { data } = await supabaseClient.from("profiles").select("nickname").eq("id", currentUser.id).single();
+  DB.me = { name: (data && data.nickname) || currentUser.email };
 }
 
 /* ============================================================
@@ -558,7 +522,7 @@ function nav(v){
   if(v==="search") renderSearch();
   if(v==="stores") renderStores();
   if(v==="rank") renderRank();
-  if(v==="friends") renderFriends();
+  if(v==="friends"){ renderFriends(); loadFriends().then(renderFriends); }
   if(v==="mypage") switchMypageTab(mypageTab);
   window.scrollTo(0,0);
 }
@@ -614,39 +578,57 @@ function openStoreModal(store){
   openModal("storeModal");
 }
 
-function saveStore(){
+function rowToStore(r){
+  return {
+    id:r.id, hpId:r.hp_id, hpUrl:r.hp_url, name:r.name, genre:r.genre, price:r.price,
+    moods:r.moods||[], companions:r.companions||[], memo:r.memo,
+    visited:r.visited, rating:r.rating, spent:r.spent, visitCount:r.visit_count,
+    privateRoom:r.private_room, smoking:r.smoking, anniversary:r.anniversary,
+  };
+}
+async function loadStores(){
+  const { data, error } = await supabaseClient.from("stores").select("*")
+    .eq("user_id", currentUser.id).order("created_at",{ascending:true});
+  if(error){ toast(error.message); return; }
+  DB.stores = (data||[]).map(rowToStore);
+}
+
+async function saveStore(){
   const name=document.getElementById("f_name").value.trim();
   if(!name){ toast("店名を入力してください"); return; }
   const id=document.getElementById("editId").value;
   const extra=[...document.querySelectorAll("#f_extra .chip.on")].map(c=>c.dataset.v);
-  const data={
+  const row={
     name,
     genre:document.getElementById("f_genre").value,
     price:document.getElementById("f_price").value,
     moods:getChips("f_moods"),
     companions:getChips("f_companions"),
-    privateRoom:extra.includes("private"),
+    private_room:extra.includes("private"),
     anniversary:extra.includes("anniv"),
     smoking:document.getElementById("f_smoking").value,
     memo:document.getElementById("f_memo").value.trim(),
   };
   if(id){
-    const s=DB.stores.find(s=>s.id===id);
-    Object.assign(s,data);
+    const { error } = await supabaseClient.from("stores").update(row).eq("id", id);
+    if(error){ toast(error.message); return; }
     toast("更新しました ✏️");
   }else{
-    DB.stores.push({id:uid(),...data,visited:false,rating:0,spent:0,visitCount:0});
+    row.user_id = currentUser.id;
+    const { error } = await supabaseClient.from("stores").insert(row);
+    if(error){ toast(error.message); return; }
     toast("登録しました 🎉");
   }
-  save(); closeModal("storeModal"); renderStores();
+  await loadStores(); closeModal("storeModal"); renderStores();
 }
 
-function deleteStore(){
+async function deleteStore(){
   const id=document.getElementById("editId").value;
   if(!id) return;
   if(!confirm("この店を削除しますか？")) return;
-  DB.stores=DB.stores.filter(s=>s.id!==id);
-  save(); closeModal("storeModal"); renderStores(); toast("削除しました 🗑️");
+  const { error } = await supabaseClient.from("stores").delete().eq("id", id);
+  if(error){ toast(error.message); return; }
+  await loadStores(); closeModal("storeModal"); renderStores(); toast("削除しました 🗑️");
 }
 
 function renderStores(){
@@ -737,18 +719,19 @@ function searchCard(s){
     </div>
   </div>`;
 }
-function addFromSearch(id){
+async function addFromSearch(id){
   const s=hpStores.find(x=>x.id===id);
   if(!s) return;
   if(DB.stores.some(x=>x.hpId===s.hpId)){ toast("すでに登録済みです"); return; }
-  DB.stores.push({
-    id:uid(), hpId:s.hpId, hpUrl:s.hpUrl,
+  const { error } = await supabaseClient.from("stores").insert({
+    user_id: currentUser.id, hp_id:s.hpId, hp_url:s.hpUrl,
     name:s.name, genre:s.genre, price:s.price,
     moods:s.moods||[], companions:s.companions||[], memo:s.memo,
-    visited:false, rating:0, spent:0, visitCount:0,
-    privateRoom:!!s.privateRoom, smoking:s.smoking||"不明", anniversary:!!s.anniversary,
+    private_room:!!s.privateRoom, smoking:s.smoking||"不明", anniversary:!!s.anniversary,
   });
-  save(); toast(`${s.name} をお気に入りに追加しました ⭐`); renderSearch();
+  if(error){ toast(error.message); return; }
+  await loadStores();
+  toast(`${s.name} をお気に入りに追加しました ⭐`); renderSearch();
 }
 
 /* ============================================================
@@ -776,17 +759,29 @@ function renderRatingPick(){
     el.appendChild(star);
   }
 }
-function saveVisit(){
+async function loadVisitLog(){
+  const { data, error } = await supabaseClient.from("visit_logs").select("*")
+    .eq("user_id", currentUser.id).order("visited_at",{ascending:false});
+  if(error){ toast(error.message); return; }
+  DB.visitLog = (data||[]).map(r=>({id:r.id, storeId:r.store_id, storeName:r.store_name, date:r.visited_at, rating:r.rating, spent:r.spent, memo:r.memo}));
+}
+async function saveVisit(){
   const id=document.getElementById("visitId").value;
   const s=DB.stores.find(s=>s.id===id);
-  s.visited=true;
-  s.rating=pickRating||s.rating||3;
-  s.spent=parseInt(document.getElementById("v_spent").value)||s.spent||0;
-  s.memo=document.getElementById("v_memo").value.trim();
-  s.visitCount=(s.visitCount||0)+1;
-  DB.visitLog = DB.visitLog||[];
-  DB.visitLog.push({id:uid(), storeId:id, storeName:s.name, date:new Date().toISOString(), rating:s.rating, spent:s.spent, memo:s.memo});
-  save(); closeModal("visitModal"); renderStores();
+  const rating=pickRating||s.rating||3;
+  const spent=parseInt(document.getElementById("v_spent").value)||s.spent||0;
+  const memo=document.getElementById("v_memo").value.trim();
+  const visitCount=(s.visitCount||0)+1;
+  const { error:e1 } = await supabaseClient.from("stores").update({
+    visited:true, rating, spent, memo, visit_count:visitCount
+  }).eq("id", id);
+  if(e1){ toast(e1.message); return; }
+  const { error:e2 } = await supabaseClient.from("visit_logs").insert({
+    user_id: currentUser.id, store_id:id, store_name:s.name, rating, spent, memo
+  });
+  if(e2){ toast(e2.message); return; }
+  await Promise.all([loadStores(), loadVisitLog()]);
+  closeModal("visitModal"); renderStores();
   toast("訪問を記録しました ✅ 友人へのおすすめ対象に！");
 }
 
@@ -980,7 +975,7 @@ function renderRank(){
 function medal(i){ return i===0?"🥇":i===1?"🥈":i===2?"🥉":(i+1); }
 
 /* ============================================================
-   友人連携 / 飯テロ DM
+   友人連携（申請→承認） / 飯テロ DM
    ============================================================ */
 let friendTab="friends";
 function switchFriendTab(t){
@@ -991,53 +986,109 @@ function switchFriendTab(t){
   document.getElementById("dmPane").style.display = t==="dm"?"block":"none";
   renderFriends();
 }
-const SAMPLE_FRIEND_STORES=[
-  {name:"行列の人気そば処",genre:"和食",price:"1,000～2,000円",moods:["お腹いっぱい"],companions:["友人","家族"],rating:4,memo:"コシのある手打ち麺"},
-  {name:"映えカフェ Bloom",genre:"カフェ",price:"1,000～2,000円",moods:["デート","ご褒美"],companions:["恋人候補","友人"],rating:5,memo:"パンケーキが名物"},
-  {name:"本格焼肉 炎",genre:"焼肉",price:"4,000～5,000円",moods:["ご褒美","飲み会"],companions:["友人","家族","恋人"],rating:5,memo:"A5ランク"},
-  {name:"深夜の担々麺",genre:"ラーメン",price:"～1,000円",moods:["お腹いっぱい"],companions:["友人"],rating:4,memo:"しびれる旨さ"},
-];
-const SAMPLE_NAMES=["けんと","さくら","だいき","ひな","りく","あおい","しょう","みお"];
 
-function addFriend(){
-  const id=document.getElementById("friendIdInput").value.trim();
-  if(!id){ toast("友人IDを入力してください"); return; }
-  if(DB.friends.find(f=>f.id===id)){ toast("すでに連携済みです"); return; }
-  const name=SAMPLE_NAMES[Math.floor(Math.random()*SAMPLE_NAMES.length)];
-  const n=1+Math.floor(Math.random()*2);
-  const shuffled=[...SAMPLE_FRIEND_STORES].sort(()=>Math.random()-0.5).slice(0,n);
-  DB.friends.push({id,name,stores:shuffled,spent:1000+Math.floor(Math.random()*7000),visits:1+Math.floor(Math.random()*6)});
-  save();
-  document.getElementById("friendIdInput").value="";
-  toast(`${name}さんと連携しました 👋`);
-  renderFriends();
+async function loadFriends(){
+  const { data:rows, error } = await supabaseClient.from("friendships").select("*")
+    .or(`requester_id.eq.${currentUser.id},addressee_id.eq.${currentUser.id}`);
+  if(error){ toast(error.message); return; }
+  const all = rows||[];
+  const accepted = all.filter(r=>r.status==="accepted");
+  const incoming = all.filter(r=>r.status==="pending" && r.addressee_id===currentUser.id);
+  const friendIds = accepted.map(r=> r.requester_id===currentUser.id ? r.addressee_id : r.requester_id);
+
+  let profiles = [];
+  if(friendIds.length){
+    const { data } = await supabaseClient.from("profiles").select("id,nickname").in("id", friendIds);
+    profiles = data||[];
+  }
+  let friendStoresMap = {};
+  if(friendIds.length){
+    const { data } = await supabaseClient.from("stores").select("*").in("user_id", friendIds);
+    (data||[]).forEach(r=>{ (friendStoresMap[r.user_id]=friendStoresMap[r.user_id]||[]).push(rowToStore(r)); });
+  }
+  DB.friends = accepted.map(r=>{
+    const fid = r.requester_id===currentUser.id ? r.addressee_id : r.requester_id;
+    const stores = friendStoresMap[fid]||[];
+    const spent = stores.reduce((a,s)=>a+(s.spent||0)*(s.visitCount?1:0),0);
+    const visits = stores.reduce((a,s)=>a+(s.visitCount||0),0);
+    const p = profiles.find(x=>x.id===fid);
+    return { id:fid, friendshipId:r.id, name:(p&&p.nickname)||"(不明)", stores, spent, visits };
+  });
+
+  if(incoming.length){
+    const reqIds = incoming.map(r=>r.requester_id);
+    const { data:reqProfs } = await supabaseClient.from("profiles").select("id,nickname").in("id", reqIds);
+    DB.friendRequestsIn = incoming.map(r=>({
+      friendshipId:r.id, requesterId:r.requester_id,
+      name: (reqProfs||[]).find(p=>p.id===r.requester_id)?.nickname || "(不明)"
+    }));
+  }else{
+    DB.friendRequestsIn = [];
+  }
 }
-function removeFriend(id){
-  if(!confirm("連携を解除しますか？")) return;
-  DB.friends=DB.friends.filter(f=>f.id!==id);
-  save(); renderFriends(); toast("連携を解除しました");
+
+async function sendFriendRequest(){
+  const email=document.getElementById("friendIdInput").value.trim();
+  if(!email){ toast("友人のメールアドレスを入力してください"); return; }
+  if(email.toLowerCase()===currentUser.email.toLowerCase()){ toast("自分自身には申請できません"); return; }
+  const { data:targetId, error:e1 } = await supabaseClient.rpc("find_user_id_by_email", { lookup_email: email });
+  if(e1 || !targetId){ toast("そのメールアドレスのユーザーが見つかりません"); return; }
+  const { error:e2 } = await supabaseClient.from("friendships").insert({ requester_id: currentUser.id, addressee_id: targetId });
+  if(e2){
+    toast(e2.code==="23505" ? "すでに申請済み、または友人です" : e2.message);
+    return;
+  }
+  document.getElementById("friendIdInput").value="";
+  toast("友人申請を送りました 👋");
+  await loadFriends(); renderFriends();
+}
+async function acceptFriendRequest(friendshipId){
+  const { error } = await supabaseClient.from("friendships").update({ status:"accepted" }).eq("id", friendshipId);
+  if(error){ toast(error.message); return; }
+  toast("友人になりました 🎉");
+  await loadFriends(); renderFriends();
+}
+async function removeFriendship(friendshipId){
+  if(!confirm("連携を解除（または申請を取り消し）しますか？")) return;
+  const { error } = await supabaseClient.from("friendships").delete().eq("id", friendshipId);
+  if(error){ toast(error.message); return; }
+  await loadFriends(); renderFriends(); toast("解除しました");
 }
 
 function renderFriends(){
   const fl=document.getElementById("friendList");
+  let html="";
+  if(DB.friendRequestsIn && DB.friendRequestsIn.length){
+    html += `<div class="card"><div style="font-weight:bold;margin-bottom:8px">📩 届いている友人申請</div>` +
+      DB.friendRequestsIn.map(r=>`
+        <div class="friend" style="border:none;padding:6px 0">
+          <div class="avatar">${esc((r.name||"?")[0])}</div>
+          <div style="flex:1;font-weight:bold">${esc(r.name)}</div>
+          <button class="btn sm" style="flex:0 0 auto;padding:8px 12px" onclick="acceptFriendRequest('${r.friendshipId}')">承認</button>
+          <button class="btn sm ghost" style="flex:0 0 auto;padding:8px 12px" onclick="removeFriendship('${r.friendshipId}')">拒否</button>
+        </div>`).join("") +
+      `</div>`;
+  }
   if(DB.friends.length===0){
-    fl.innerHTML=`<div class="empty"><span class="big">🧑‍🤝‍🧑</span>まだ友人がいません。<br>IDを入力して連携してみましょう！</div>`;
+    html += `<div class="empty"><span class="big">🧑‍🤝‍🧑</span>まだ友人がいません。<br>メールアドレスを入力して申請してみましょう！</div>`;
   }else{
-    fl.innerHTML = DB.friends.map(f=>`
+    html += DB.friends.map(f=>`
       <div class="card" style="padding:12px">
         <div class="friend" style="border:none;padding:0">
-          <div class="avatar">${esc(f.name[0])}</div>
+          <div class="avatar">${esc((f.name||"?")[0])}</div>
           <div style="flex:1">
-            <div style="font-weight:bold">${esc(f.name)} <span class="pill">ID:${esc(f.id)}</span></div>
-            <div style="font-size:12px;color:var(--muted)">おすすめ店 ${f.stores.length}件 ・ 今月${f.visits||0}回</div>
+            <div style="font-weight:bold">${esc(f.name)}</div>
+            <div style="font-size:12px;color:var(--muted)">お気に入り ${f.stores.length}件 ・ 今月${f.visits||0}回</div>
           </div>
-          <button class="btn sm ghost" onclick="removeFriend('${f.id}')">解除</button>
+          <button class="btn sm ghost" onclick="removeFriendship('${f.friendshipId}')">解除</button>
         </div>
         <div style="margin-top:8px">
           ${f.stores.map(s=>`<span class="tag g">🍽️ ${esc(s.name)}</span>`).join("")}
         </div>
       </div>`).join("");
   }
+  fl.innerHTML = html;
+
   const dl=document.getElementById("dmList");
   if(!DB.dms || DB.dms.length===0){
     dl.innerHTML=`<div class="empty"><span class="big">🔥</span>飯テロの受信はまだありません</div>`;
@@ -1056,10 +1107,27 @@ function renderFriends(){
       </div>`).join("");
   }
 }
-function reactDm(id,r){
-  const d=DB.dms.find(d=>d.id===id);
-  d.reaction=r;
-  save(); renderFriends();
+
+async function loadDms(){
+  const { data, error } = await supabaseClient.from("dms").select("*")
+    .eq("to_user", currentUser.id).order("created_at",{ascending:false});
+  if(error){ toast(error.message); return; }
+  const rows = data||[];
+  const fromIds = [...new Set(rows.map(r=>r.from_user))];
+  let profs=[];
+  if(fromIds.length){
+    const { data:p } = await supabaseClient.from("profiles").select("id,nickname").in("id", fromIds);
+    profs = p||[];
+  }
+  DB.dms = rows.map(r=>({
+    id:r.id, fromName:(profs.find(p=>p.id===r.from_user)||{}).nickname || "(不明)",
+    storeName:r.store_name, genre:r.genre, msg:r.msg, reaction:r.reaction
+  }));
+}
+async function reactDm(id,r){
+  const { error } = await supabaseClient.from("dms").update({ reaction:r }).eq("id", id);
+  if(error){ toast(error.message); return; }
+  await loadDms(); renderFriends();
   toast(r==="good"?"「おいしかった！」を送信 😋":"「バカ舌やん」を送信 😖 通知が届きました");
 }
 
@@ -1069,7 +1137,7 @@ function openSendModal(storeId){
   document.getElementById("sendStoreName").textContent="🍽️ "+s.name+"（"+s.genre+"）";
   const list=document.getElementById("sendFriendList");
   if(DB.friends.length===0){
-    list.innerHTML=`<div class="hint">先に「友人」タブで友人を連携してください。</div>`;
+    list.innerHTML=`<div class="hint">先に「友人」タブで友人を申請・承認してください。</div>`;
   }else{
     list.innerHTML=DB.friends.map(f=>`
       <button class="opt" onclick="sendTero('${f.id}','${storeId}')">
@@ -1078,11 +1146,15 @@ function openSendModal(storeId){
   }
   openModal("sendModal");
 }
-function sendTero(friendId,storeId){
+async function sendTero(friendId,storeId){
   const f=DB.friends.find(f=>f.id===friendId);
   const s=DB.stores.find(s=>s.id===storeId);
-  DB.dms.unshift({id:uid(),fromName:DB.me.name+"→"+f.name,storeName:s.name,genre:s.genre,msg:"これ食べに行こう！🔥（"+f.name+"さんへ送信済み）",reaction:null});
-  save(); closeModal("sendModal");
+  const { error } = await supabaseClient.from("dms").insert({
+    from_user: currentUser.id, to_user: friendId,
+    store_name: s.name, genre: s.genre, msg: "これ食べに行こう！🔥"
+  });
+  if(error){ toast(error.message); return; }
+  closeModal("sendModal");
   toast(`${f.name}さんに飯テロを送りつけました 🔥`);
 }
 
@@ -1194,10 +1266,10 @@ function renderBadge(){
 /* ============================================================
    起動
    ============================================================ */
-function boot(){
-  const id = localStorage.getItem(SESSION_KEY);
-  if(id && getUsers()[id]){
-    enterApp(id);
+async function boot(){
+  const { data:{ session } } = await supabaseClient.auth.getSession();
+  if(session && session.user){
+    await enterApp(session.user);
   }else{
     document.getElementById("authScreen").style.display="flex";
     document.getElementById("appRoot").style.display="none";
