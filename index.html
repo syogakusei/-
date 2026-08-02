@@ -165,6 +165,10 @@
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   .hint{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.6}
   .pill{display:inline-block;background:var(--accent);color:#fff;font-size:11px;font-weight:bold;padding:2px 8px;border-radius:10px}
+  .hp-credit{text-align:center;font-size:11px;color:var(--muted);padding:10px 16px 4px}
+  .hp-credit a{color:var(--primary-dark);text-decoration:underline}
+  .hp-photo-credit{font-size:10px;color:var(--muted);margin-top:2px}
+  .hp-photo{width:100%;max-height:160px;object-fit:cover;border-radius:10px;margin-top:8px}
 </style>
 </head>
 <body>
@@ -177,6 +181,13 @@
 <!-- ========== 提案（ホーム / アキネーター） ========== -->
 <section id="v-home" class="view active">
   <div id="akiArea"></div>
+</section>
+
+<!-- ========== 周辺のお店一覧（ホットペッパー グルメ） ========== -->
+<section id="v-list" class="view">
+  <h2 class="section">📋 周辺のお店一覧</h2>
+  <div class="hint" style="margin-bottom:10px">ホットペッパー グルメから三宮エリアのお店を取得して表示します</div>
+  <div id="hpListArea"></div>
 </section>
 
 <!-- ========== お店 ========== -->
@@ -231,9 +242,12 @@
   <div id="badgeList"></div>
 </section>
 
+<div class="hp-credit">Powered by <a href="http://webservice.recruit.co.jp/" target="_blank" rel="noopener">ホットペッパーグルメ Webサービス</a></div>
+
 <!-- ========== ボトムナビ ========== -->
 <nav class="tabbar">
   <button id="t-home" class="on" onclick="nav('home')"><span class="ic">🎯</span>提案</button>
+  <button id="t-list" onclick="nav('list')"><span class="ic">📋</span>一覧</button>
   <button id="t-stores" onclick="nav('stores')"><span class="ic">🏠</span>お店</button>
   <button id="t-rank" onclick="nav('rank')"><span class="ic">🏆</span>ランキング</button>
   <button id="t-friends" onclick="nav('friends')"><span class="ic">👥</span>友人</button>
@@ -354,13 +368,14 @@ function seed(){
 /* ============================================================
    ナビゲーション
    ============================================================ */
-const VIEWS = ["home","stores","rank","friends","badge"];
+const VIEWS = ["home","list","stores","rank","friends","badge"];
 function nav(v){
   VIEWS.forEach(x=>{
     document.getElementById("v-"+x).classList.toggle("active", x===v);
     document.getElementById("t-"+x).classList.toggle("on", x===v);
   });
   if(v==="home") renderAki();
+  if(v==="list") renderHpList();
   if(v==="stores") renderStores();
   if(v==="rank") renderRank();
   if(v==="friends") renderFriends();
@@ -475,6 +490,7 @@ function storeCard(s){
     <div style="margin-top:8px">
       ${(s.moods||[]).map(m=>`<span class="tag">${m}</span>`).join("")}
       ${(s.companions||[]).map(c=>`<span class="tag f">${c}</span>`).join("")}
+      ${s.hpUrl?`<a href="${s.hpUrl}" target="_blank" rel="noopener" class="tag g">🔗 ホットペッパーで見る</a>`:""}
     </div>
     <div class="row" style="margin-top:12px">
       <button class="btn sm sec" onclick="openVisitModal('${s.id}')">📝 訪問記録</button>
@@ -484,6 +500,74 @@ function storeCard(s){
   </div>`;
 }
 function editStore(id){ openStoreModal(DB.stores.find(s=>s.id===id)); }
+
+/* ============================================================
+   周辺のお店一覧（ホットペッパー グルメ Webサービス経由・Netlify Functions）
+   お店の元データは保存せず、タブを開くたびに毎回取得する
+   ============================================================ */
+function renderHpList(){
+  const el=document.getElementById("hpListArea");
+  el.innerHTML=`<div class="empty">読み込み中… <span class="big">🔄</span></div>`;
+  fetch("/.netlify/functions/hotpepper")
+    .then(res=>{
+      if(!res.ok) return res.json().then(d=>{ throw new Error((d&&d.error)||("HTTP "+res.status)); });
+      return res.json();
+    })
+    .then(data=>{
+      const shops=data.shops||[];
+      hpLastList=shops;
+      if(shops.length===0){
+        el.innerHTML=`<div class="empty"><span class="big">😢</span>お店が見つかりませんでした。</div>`;
+        return;
+      }
+      el.innerHTML =
+        `<div class="hint" style="margin-bottom:10px">「${esc(data.keyword||"")}」で${shops.length}件取得しました</div>` +
+        shops.map(hpShopCard).join("");
+    })
+    .catch(err=>{
+      el.innerHTML=`<div class="empty"><span class="big">⚠️</span>お店一覧を取得できませんでした。<br>${esc(err.message)}</div>`;
+    });
+}
+function hpShopCard(s){
+  const already = DB.stores.some(x=>x.hpId===s.id);
+  const photo = s.photo ? `<img class="hp-photo" src="${s.photo}" alt="${esc(s.name)}" loading="lazy">
+    <div class="hp-photo-credit">【画像提供：ホットペッパー グルメ】</div>` : "";
+  return `<div class="store">
+    <div class="top">
+      <div>
+        <div class="name">${esc(s.name)}</div>
+        <div class="meta">
+          🍱 ${esc(s.genre||"-")} ・ 💰 ${esc(s.budget||"-")}<br>
+          🕒 ${esc(s.open||"-")}<br>
+          🚶 ${esc(s.access||"-")}<br>
+          ☎ ${esc(s.tel||"-")}
+        </div>
+      </div>
+    </div>
+    ${photo}
+    <div style="margin-top:8px">
+      <a href="${s.url}" target="_blank" rel="noopener" class="tag g">🔗 ホットペッパーの店舗ページ</a>
+      ${s.privateRoom==="あり"?'<span class="tag">個室あり</span>':""}
+      ${s.nonSmoking==="あり"?'<span class="tag">禁煙席あり</span>':""}
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn sm ${already?"ghost":"sec"}" ${already?"disabled":""} onclick="addFavoriteFromHp('${s.id}')">${already?"✓ 登録済み":"⭐ お気に入りに追加"}</button>
+    </div>
+  </div>`;
+}
+let hpLastList=[];
+function addFavoriteFromHp(id){
+  const shop=hpLastList.find(s=>s.id===id);
+  if(!shop) return;
+  if(DB.stores.some(x=>x.hpId===id)){ toast("すでに登録済みです"); return; }
+  DB.stores.push({
+    id:uid(), hpId:shop.id, hpUrl:shop.url,
+    name:shop.name, genre:shop.genre||"その他", price:shop.budget||"",
+    moods:[], companions:[], memo:shop.access||"",
+    visited:false, rating:0, spent:0, visitCount:0,
+  });
+  save(); toast(`${shop.name} をお気に入りに追加しました ⭐`); renderStores();
+}
 
 /* ============================================================
    訪問記録
