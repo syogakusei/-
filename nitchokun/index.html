@@ -341,7 +341,7 @@ const Store = {
       console.warn("[日調くん] Supabase に接続できないためデモモードで動作します:", e.message);
       this.mode = "local";
       const b = $("#banner");
-      b.textContent = "⚠ デモモード：サーバーに接続できないため、データはこの端末のブラウザにだけ保存されます（共有リンクは他の人の端末では開けません）。";
+      b.textContent = "⚠ デモモード：サーバーに接続できないため、データはこの端末のブラウザにだけ保存されます（共有リンクは他の人の端末では開けません）。原因：" + e.message;
       b.hidden = false;
     }
   },
