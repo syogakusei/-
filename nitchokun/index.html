@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>日調くん</title>
+<meta name="description" content="候補日を選んでリンクを送るだけ。30分ごとに○△×で回答できる日程調整アプリ。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --enji:#8B1E2F;
+    --enji-dark:#661522;
+    --enji-mid:#B8606E;
+    --enji-soft:#F7ECEE;
+    --enji-faint:#FBF6F7;
+    --line:#EADADD;
+    --bg:#FFFFFF;
+    --card:#FFFFFF;
+    --text:#2A1418;
+    --muted:#86707A;
+    --cell:#F4EEEF;
+    --sat:#3D5A80;
+    --tri:#E9B9C1;
+    --batsu:#D9D2D4;
+    --shadow:0 10px 30px rgba(139,30,47,.10);
+    --head:"Dela Gothic One","Zen Kaku Gothic New",sans-serif;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Meiryo",sans-serif;
+    background:var(--bg);
+    background-image:linear-gradient(180deg,var(--enji-faint),#fff 420px);
+    color:var(--text);
+    min-height:100vh;
+    font-weight:500;
+  }
+  button,input,select,textarea{font-family:inherit;color:inherit}
+  button{cursor:pointer}
+  a{color:var(--enji)}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 16px 64px}
+
+  /* ロゴ */
+  .logo{display:inline-grid;place-items:center;width:64px;height:64px;border-radius:18px;
+    background:var(--enji);color:#fff;font-family:var(--head);font-size:34px;line-height:1;
+    box-shadow:0 8px 20px rgba(139,30,47,.28);position:relative}
+  .logo::after{content:"";position:absolute;inset:5px;border:1.5px solid rgba(255,255,255,.45);border-radius:13px}
+  .logo.sm{width:28px;height:28px;border-radius:8px;font-size:15px;box-shadow:none}
+  .logo.sm::after{inset:2.5px;border-radius:6px;border-width:1px}
+
+  /* トップ */
+  .hero{text-align:center;margin:12px 0 30px}
+  .hero h1{font-family:var(--head);font-weight:400;font-size:44px;color:var(--enji);margin:16px 0 8px;letter-spacing:.06em}
+  .hero p{color:var(--muted);margin:0;font-size:15px}
+
+  .card{background:var(--card);border-radius:24px;padding:28px;box-shadow:var(--shadow);border:1px solid var(--line)}
+  .create{max-width:720px;margin:0 auto}
+  .fld{display:block;font-weight:700;font-size:14px;margin:0 0 8px}
+  .create > .fld + * {margin-bottom:22px}
+  input[type=text],textarea,select{
+    width:100%;padding:13px 18px;border:1.5px solid var(--line);border-radius:16px;
+    background:var(--enji-faint);font-size:16px;outline:none;transition:border-color .15s,background .15s;
+  }
+  textarea{resize:vertical;min-height:84px}
+  input[type=text]:focus,textarea:focus,select:focus{border-color:var(--enji);background:#fff}
+  ::placeholder{color:#B9A6AC}
+
+  /* カレンダー */
+  .calhead{display:flex;justify-content:space-between;align-items:center;margin:4px 0 10px}
+  .calhead .fld{margin:0}
+  .monthnav{display:flex;align-items:center;gap:8px;font-weight:700;font-size:18px}
+  .monthnav button{border:none;background:none;width:34px;height:34px;border-radius:50%;font-size:18px;color:var(--muted)}
+  .monthnav button:hover{background:var(--enji-soft);color:var(--enji)}
+  .monthnav button:disabled{opacity:.3;cursor:default;background:none}
+  .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;user-select:none;touch-action:pan-y}
+  .cal .wd{text-align:center;font-weight:700;font-size:13px;color:var(--muted);padding:6px 0}
+  .cal .wd.sun{color:var(--enji)} .cal .wd.sat{color:var(--sat)}
+  .day{aspect-ratio:1/1;border-radius:14px;background:var(--cell);display:grid;place-items:center;
+    font-weight:700;font-size:16px;border:none;transition:transform .08s,background .12s}
+  .day:hover{background:var(--enji-soft)}
+  .day.on{background:var(--enji);color:#fff;box-shadow:0 4px 12px rgba(139,30,47,.3)}
+  .day.past{background:none;color:#C9BDC1;cursor:default}
+  .day.today:not(.on){box-shadow:inset 0 0 0 2px var(--enji-mid)}
+  .day.empty{background:none;cursor:default}
+  .timerow{display:flex;align-items:center;gap:12px;margin:24px 0 26px;flex-wrap:wrap}
+  .timerow .fld{margin:0}
+  .timerow select{width:auto;padding:10px 14px;font-weight:700}
+
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:999px;
+    background:var(--enji);color:#fff;font-weight:900;font-size:17px;padding:16px 28px;letter-spacing:.05em;
+    box-shadow:0 8px 20px rgba(139,30,47,.25);transition:transform .08s,background .15s}
+  .btn:hover{background:var(--enji-dark)}
+  .btn:active{transform:scale(.97)}
+  .btn:disabled{opacity:.5;cursor:default}
+  .btn.block{display:flex;width:100%}
+  .btn.ghost{background:#fff;color:var(--enji);border:1.5px solid var(--enji);box-shadow:none}
+  .btn.ghost:hover{background:var(--enji-soft)}
+  .btn.sm{font-size:14px;padding:10px 18px}
+  .err{color:var(--enji);font-weight:700;font-size:14px;min-height:20px;margin:10px 0 0;text-align:center}
+
+  /* イベント画面 */
+  .evhead{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:26px;flex-wrap:wrap}
+  .brand{display:inline-flex;align-items:center;gap:8px;font-family:var(--head);color:var(--enji);text-decoration:none;font-size:17px;letter-spacing:.05em}
+  .evhead h1{font-family:var(--head);font-weight:400;font-size:38px;margin:10px 0 4px;letter-spacing:.03em;word-break:break-word}
+  .evhead .desc{color:var(--muted);white-space:pre-wrap;word-break:break-word;margin:0}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start}
+  @media (max-width:960px){.two{grid-template-columns:1fr}}
+  .card h2{font-family:var(--head);font-weight:400;font-size:22px;margin:0 0 12px;letter-spacing:.04em}
+  .card h2 small{font-family:"Zen Kaku Gothic New",sans-serif;font-weight:700;font-size:14px;color:var(--muted);margin-left:6px}
+  .note{color:var(--muted);font-size:14px;margin:0 0 14px;line-height:1.6}
+  .namerow{display:flex;gap:10px}
+  .namerow input{flex:1;min-width:0}
+  .namerow .btn{flex-shrink:0;padding:12px 24px}
+
+  .people{margin-top:24px;padding-top:20px;border-top:1px dashed var(--line)}
+  .people h3{font-size:14px;margin:0 0 10px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .pchip{border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:7px 14px;font-weight:700;font-size:14px;display:inline-flex;align-items:center;gap:6px}
+  .pchip:hover{border-color:var(--enji);color:var(--enji)}
+  .pchip .pen{font-size:12px;opacity:.6}
+
+  .whohead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .whohead .who{font-weight:900;font-size:18px}
+  .whohead .saved{font-size:13px;color:var(--muted)}
+  .whohead .saved.bad{color:var(--enji);font-weight:700}
+  .whohead .links{margin-left:auto;display:flex;gap:14px;font-size:13px}
+  .linkbtn{background:none;border:none;padding:0;color:var(--muted);text-decoration:underline;font-size:13px}
+  .linkbtn:hover{color:var(--enji)}
+
+  .tools{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+  .tool{border:2px solid transparent;border-radius:999px;padding:9px 16px;font-weight:900;font-size:14px;background:var(--cell);transition:transform .08s}
+  .tool:active{transform:scale(.96)}
+  .tool.o{background:var(--enji);color:#fff}
+  .tool.t{background:var(--tri);color:var(--enji-dark)}
+  .tool.x{background:var(--batsu);color:#5d4a50}
+  .tool.e{background:#fff;border-color:var(--line);color:var(--muted)}
+  .tool.c{background:var(--enji-faint);border-color:var(--line);color:var(--text)}
+  .tool.sel{border-color:var(--text);box-shadow:0 0 0 2px #fff inset}
+  .tool:not(.sel){opacity:.72}
+  .hint{font-size:13px;color:var(--muted);margin:0 0 12px}
+
+  /* 予定グリッド */
+  .gridwrap{overflow-x:auto;padding:2px 2px 6px}
+  .sgrid{display:grid;gap:4px;user-select:none;width:max-content}
+  .sgrid .corner{}
+  .sgrid .dh{text-align:center;line-height:1.25;padding-bottom:6px}
+  .sgrid .dh .w{font-size:13px;font-weight:700;color:var(--muted)}
+  .sgrid .dh .w.sun{color:var(--enji)} .sgrid .dh .w.sat{color:var(--sat)}
+  .sgrid .dh .d{font-weight:900;font-size:17px}
+  .sgrid .tl{font-size:12px;color:var(--muted);text-align:right;padding-right:6px;transform:translateY(-8px);white-space:nowrap}
+  .cell{height:34px;border-radius:10px;background:var(--cell);position:relative;display:grid;place-items:center;
+    font-weight:900;font-size:16px;transition:background .1s}
+  #mineGrid .cell{touch-action:none;cursor:pointer}
+  #mineGrid .cell:hover{outline:2px solid var(--enji-mid);outline-offset:-2px}
+  .cell.m-o{background:var(--enji);color:#fff}
+  .cell.m-t{background:var(--tri);color:var(--enji-dark)}
+  .cell.m-x{background:var(--batsu);color:#6f5b61}
+  .cell.cm::after{content:"";position:absolute;top:4px;right:5px;width:9px;height:7px;border-radius:5px 5px 5px 1px;background:#fff;box-shadow:0 0 0 1.5px var(--enji-mid)}
+  #allGrid .cell{cursor:pointer}
+  #allGrid .cell.focus{outline:3px solid var(--text);outline-offset:-1px}
+
+  .best{margin:18px 0 0}
+  .best h3{font-size:14px;margin:0 0 8px}
+  .best .chips .pchip{font-weight:700}
+  .best .chips .pchip b{color:var(--enji)}
+  .detail{margin-top:18px;background:var(--enji-faint);border:1px solid var(--line);border-radius:18px;padding:18px 20px}
+  .detail .dt{font-family:var(--head);font-weight:400;font-size:18px;margin-bottom:10px;letter-spacing:.03em}
+  .detail .empty{color:var(--muted);font-size:14px}
+  .detail ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+  .detail li{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .badge{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-weight:900;font-size:14px;flex-shrink:0}
+  .badge.o{background:var(--enji);color:#fff}
+  .badge.t{background:var(--tri);color:var(--enji-dark)}
+  .badge.x{background:var(--batsu);color:#6f5b61}
+  .badge.n{background:#fff;border:1.5px dashed var(--line);color:var(--muted)}
+  .detail .nm{font-weight:900}
+  .detail li.na .nm{color:var(--muted);font-weight:700}
+  .detail .cmt{color:var(--muted);font-size:14px;word-break:break-word}
+  .detail .cmt::before{content:"💬 "}
+  .legend{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin:0 0 12px}
+  .legend .bar{width:120px;height:10px;border-radius:5px;background:linear-gradient(90deg,var(--cell),var(--enji))}
+
+  .done{margin-top:22px}
+
+  .banner{background:#FFF7E6;border:1px solid #F0D9A8;color:#6b4e12;border-radius:14px;padding:10px 14px;font-size:13px;margin:0 auto 18px;max-width:1180px}
+
+  /* モーダル */
+  .ov{position:fixed;inset:0;background:rgba(42,20,24,.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:100}
+  .ov.show{display:flex}
+  .modal{background:#fff;border-radius:22px;padding:24px;width:100%;max-width:420px;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+  .modal h3{font-family:var(--head);font-weight:400;font-size:19px;margin:0 0 6px}
+  .modal p{color:var(--muted);font-size:14px;margin:0 0 14px}
+  .modal .acts{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
+  .modal .acts .left{margin-right:auto}
+
+  #toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:var(--text);color:#fff;
+    padding:12px 20px;border-radius:999px;font-weight:700;font-size:14px;opacity:0;pointer-events:none;transition:.25s;z-index:200;max-width:calc(100% - 32px);text-align:center}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  .loading{text-align:center;color:var(--muted);padding:80px 0}
+
+  @media (max-width:600px){
+    .wrap{padding:20px 16px 48px}
+    .card{padding:20px;border-radius:20px}
+    .hero h1{font-size:36px}
+    .evhead h1{font-size:30px}
+    .day{border-radius:10px;font-size:14px}
+    .cal{gap:4px}
+    .namerow{flex-direction:column}
+    .btn{font-size:16px}
+  }
+</style>
+</head>
+<body>
+
+<div id="banner" class="banner" hidden></div>
+<main class="wrap" id="app"><div class="loading">読み込み中…</div></main>
+
+<div class="ov" id="ov">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3 id="mTitle"></h3>
+    <p id="mText"></p>
+    <div id="mBody"></div>
+    <div class="acts" id="mActs"></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ============================================================
+   日調くん — 日程調整アプリ
+   データ保存は Supabase（nitcho_ で始まるテーブル・関数。schema.sql 参照）。
+   Supabase に接続できないときは、この端末の localStorage に保存する
+   デモモードで動く（リンク共有はできない）。
+   ============================================================ */
+const SUPABASE_URL = "https://dhirgrxgfzeudszpdmvc.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_-em7nt1A7eXTmtnYh-E87g_FsBOUrej";
+
+const SLOT = 30;
+const WD = ["日","月","火","水","木","金","土"];
+const MARK = { o:"〇", t:"△", x:"×" };
+const SCORE = { o:1, t:0.5, x:0 };
+const LIMIT = { title:100, desc:1000, name:30, comment:200, dates:62, cells:3000 };
+
+/* ---------- 小物 ---------- */
+const $ = (sel, root=document) => root.querySelector(sel);
+const pad = n => String(n).padStart(2,"0");
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parseYmd = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); };
+const fmtMin = m => `${Math.floor(m/60)}:${pad(m%60)}`;
+const keyOf = (date, min) => `${date}|${min}`;
+function slotLabel(key){
+  const [d, m] = key.split("|"); const dt = parseYmd(d);
+  return `${dt.getMonth()+1}/${dt.getDate()}（${WD[dt.getDay()]}）${fmtMin(+m)}〜${fmtMin(+m+SLOT)}`;
+}
+function el(tag, attrs={}, ...kids){
+  const e = document.createElement(tag);
+  for(const [k,v] of Object.entries(attrs)){
+    if(v == null || v === false) continue;
+    if(k === "class") e.className = v;
+    else if(k === "text") e.textContent = v;
+    else if(k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v === true ? "" : v);
+  }
+  for(const k of kids.flat()){ if(k != null && k !== false) e.append(k); }
+  return e;
+}
+function toast(msg){
+  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove("show"), 2400);
+}
+function uuid(){
+  if(crypto.randomUUID) return crypto.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+    const r = Math.random()*16|0; return (c === "x" ? r : (r&3|8)).toString(16);
+  });
+}
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+
+/* ---------- モーダル ---------- */
+// ask({title, text, input:{value, multiline, maxlength, placeholder}, buttons:[{id,label,kind}]})
+// → Promise<{id, value}>（背景クリック・Esc は id:"cancel"）
+function ask(opt){
+  return new Promise(resolve => {
+    const ov = $("#ov");
+    $("#mTitle").textContent = opt.title || "";
+    $("#mText").textContent = opt.text || "";
+    $("#mText").hidden = !opt.text;
+    const body = $("#mBody"); body.replaceChildren();
+    let input = null;
+    if(opt.input){
+      input = opt.input.multiline ? el("textarea", {rows:3}) : el("input", {type:"text"});
+      input.value = opt.input.value || "";
+      if(opt.input.maxlength) input.maxLength = opt.input.maxlength;
+      if(opt.input.placeholder) input.placeholder = opt.input.placeholder;
+      body.append(input);
+    }
+    const acts = $("#mActs"); acts.replaceChildren();
+    const finish = id => {
+      ov.classList.remove("show");
+      document.removeEventListener("keydown", onKey);
+      ov.onclick = null;
+      resolve({ id, value: input ? input.value : null });
+    };
+    const onKey = e => {
+      if(e.key === "Escape") finish("cancel");
+      if(e.key === "Enter" && input && !opt.input.multiline && !e.isComposing){ e.preventDefault(); finish(opt.buttons.find(b => b.primary)?.id || "ok"); }
+    };
+    for(const b of opt.buttons){
+      const cls = "btn sm " + (b.primary ? "" : "ghost") + (b.left ? " left" : "");
+      acts.append(el("button", {class:cls, type:"button", text:b.label, onclick:() => finish(b.id)}));
+    }
+    ov.onclick = e => { if(e.target === ov) finish("cancel"); };
+    document.addEventListener("keydown", onKey);
+    ov.classList.add("show");
+    if(input){ input.focus(); input.select?.(); }
+  });
+}
+
+/* ============================================================
+   データ層（Supabase / デモ用ローカル保存）
+   ============================================================ */
+const Store = {
+  mode: "remote",
+  client: null,
+
+  async init(){
+    try{
+      if(!window.supabase) throw new Error("supabase-js が読み込めませんでした");
+      this.client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      const { data, error } = await Promise.race([
+        this.client.rpc("nitcho_ping"),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 8000)),
+      ]);
+      if(error || data !== "ok") throw new Error(error ? error.message : "ping failed");
+    }catch(e){
+      console.warn("[日調くん] Supabase に接続できないためデモモードで動作します:", e.message);
+      this.mode = "local";
+      const b = $("#banner");
+      b.textContent = "⚠ デモモード：サーバーに接続できないため、データはこの端末のブラウザにだけ保存されます（共有リンクは他の人の端末では開けません）。";
+      b.hidden = false;
+    }
+  },
+
+  async rpc(fn, args){
+    const { data, error } = await this.client.rpc(fn, args);
+    if(error) throw new Error(error.message || "通信に失敗しました");
+    return data;
+  },
+
+  /* --- ローカル保存（デモモード） --- */
+  _load(){
+    try{ return JSON.parse(localStorage.getItem("nitchokun:v1")) || { events:{} }; }
+    catch{ return { events:{} }; }
+  },
+  _save(db){
+    try{ localStorage.setItem("nitchokun:v1", JSON.stringify(db)); }
+    catch{ throw new Error("ブラウザに保存できませんでした"); }
+  },
+
+  async createEvent(ev){
+    if(this.mode === "remote"){
+      return this.rpc("nitcho_create_event", {
+        p_title: ev.title, p_description: ev.description, p_dates: ev.dates, p_start: ev.start_min, p_end: ev.end_min,
+      });
+    }
+    const db = this._load(); const id = uuid();
+    db.events[id] = { event: { id, ...ev, dates: [...ev.dates].sort() }, responses: [] };
+    this._save(db); return id;
+  },
+
+  async getEvent(id){
+    if(this.mode === "remote") return this.rpc("nitcho_get_event", { p_id: id });
+    return clone(this._load().events[id] || null);
+  },
+
+  async saveResponse(id, name, answers, comments){
+    if(this.mode === "remote"){
+      return this.rpc("nitcho_save_response", { p_event:id, p_name:name, p_answers:answers, p_comments:comments });
+    }
+    const db = this._load(); const e = db.events[id];
+    if(!e) throw new Error("イベントが見つかりません");
+    const r = e.responses.find(r => r.name === name);
+    const now = new Date().toISOString();
+    if(r){ Object.assign(r, { answers, comments, updated_at: now }); }
+    else e.responses.push({ name, answers, comments, updated_at: now });
+    this._save(db);
+  },
+
+  async renameResponse(id, oldName, newName){
+    if(this.mode === "remote"){
+      return this.rpc("nitcho_rename_response", { p_event:id, p_old:oldName, p_new:newName });
+    }
+    const db = this._load(); const e = db.events[id];
+    if(e.responses.some(r => r.name === newName)) throw new Error("その名前はすでに使われています");
+    const r = e.responses.find(r => r.name === oldName);
+    if(r) r.name = newName;
+    this._save(db);
+  },
+
+  async deleteResponse(id, name){
+    if(this.mode === "remote") return this.rpc("nitcho_delete_response", { p_event:id, p_name:name });
+    const db = this._load(); const e = db.events[id];
+    e.responses = e.responses.filter(r => r.name !== name);
+    this._save(db);
+  },
+};
+
+/* ============================================================
+   画面：イベント作成
+   ============================================================ */
+function renderCreate(){
+  stopPolling();
+  document.title = "日調くん";
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayStr = ymd(today);
+  const state = {
+    month: new Date(today.getFullYear(), today.getMonth(), 1),
+    dates: new Set(),
+  };
+
+  const app = $("#app");
+  const title = el("input", {type:"text", id:"title", maxlength:LIMIT.title, placeholder:"例：チームランチ"});
+  const desc = el("textarea", {id:"desc", maxlength:LIMIT.desc, placeholder:"場所やメモなど"});
+  const countLbl = el("span", {class:"fld"});
+  const monthLbl = el("span");
+  const prev = el("button", {type:"button", "aria-label":"前の月", text:"‹"});
+  const next = el("button", {type:"button", "aria-label":"次の月", text:"›"});
+  const cal = el("div", {class:"cal"});
+  const startSel = el("select", {"aria-label":"開始時刻"});
+  const endSel = el("select", {"aria-label":"終了時刻"});
+  for(let m = 0; m < 24*60; m += SLOT) startSel.append(el("option", {value:m, text:fmtMin(m)}));
+  for(let m = SLOT; m <= 24*60; m += SLOT) endSel.append(el("option", {value:m, text:fmtMin(m)}));
+  startSel.value = 9*60; endSel.value = 18*60;
+  const err = el("p", {class:"err"});
+  const submit = el("button", {class:"btn block", type:"button", text:"イベントを作成する"});
+
+  app.replaceChildren(
+    el("section", {class:"hero"},
+      el("div", {class:"logo", "aria-hidden":"true", text:"日"}),
+      el("h1", {text:"日調くん"}),
+      el("p", {text:"候補日を選んでリンクを送るだけ。30分ごとに 〇 △ × で回答できます。"}),
+    ),
+    el("section", {class:"card create"},
+      el("label", {class:"fld", for:"title", text:"イベント名"}), title,
+      el("label", {class:"fld", for:"desc", text:"説明（任意）"}), desc,
+      el("div", {class:"calhead"}, countLbl, el("div", {class:"monthnav"}, prev, monthLbl, next)),
+      cal,
+      el("div", {class:"timerow"}, el("span", {class:"fld", text:"時間帯"}), startSel, el("span", {text:"〜"}), endSel),
+      submit, err,
+    ),
+  );
+
+  // ドラッグで複数日をまとめて選択／解除
+  let drag = null; // { add: boolean }
+  function setDay(btn){
+    const d = btn.dataset.date; if(!d) return;
+    if(drag.add) state.dates.add(d); else state.dates.delete(d);
+    btn.classList.toggle("on", drag.add);
+    updateCount();
+  }
+  cal.addEventListener("pointerdown", e => {
+    const btn = e.target.closest(".day[data-date]"); if(!btn) return;
+    e.preventDefault();
+    drag = { add: !state.dates.has(btn.dataset.date) };
+    setDay(btn);
+  });
+  const onMove = e => {
+    if(!drag) return;
+    const t = document.elementFromPoint(e.clientX, e.clientY);
+    const btn = t && t.closest(".cal .day[data-date]");
+    if(btn && btn.classList.contains("on") !== drag.add) setDay(btn);
+  };
+  const onUp = () => { drag = null; };
+  document.addEventListener("pointermove", onMove);
+  document.addEventListener("pointerup", onUp);
+  document.addEventListener("pointercancel", onUp);
+  cleanupFns.push(() => {
+    document.removeEventListener("pointermove", onMove);
+    document.removeEventListener("pointerup", onUp);
+    document.removeEventListener("pointercancel", onUp);
+  });
+
+  function updateCount(){ countLbl.textContent = `候補日（${state.dates.size}日選択中）`; }
+  function drawCal(){
+    const y = state.month.getFullYear(), m = state.month.getMonth();
+    monthLbl.textContent = `${y}年${m+1}月`;
+    prev.disabled = y === today.getFullYear() && m === today.getMonth();
+    cal.replaceChildren(...WD.map((w,i) => el("div", {class:"wd" + (i===0?" sun":i===6?" sat":""), text:w})));
+    const first = new Date(y, m, 1).getDay();
+    for(let i = 0; i < first; i++) cal.append(el("div", {class:"day empty"}));
+    const days = new Date(y, m+1, 0).getDate();
+    for(let d = 1; d <= days; d++){
+      const dt = new Date(y, m, d); const s = ymd(dt);
+      if(dt < today){ cal.append(el("div", {class:"day past", text:d})); continue; }
+      cal.append(el("button", {
+        type:"button", class:"day" + (state.dates.has(s) ? " on" : "") + (s === todayStr ? " today" : ""),
+        "data-date": s, text: d, "aria-pressed": state.dates.has(s) ? "true" : "false",
+      }));
+    }
+  }
+  prev.onclick = () => { state.month = new Date(state.month.getFullYear(), state.month.getMonth()-1, 1); drawCal(); };
+  next.onclick = () => { state.month = new Date(state.month.getFullYear(), state.month.getMonth()+1, 1); drawCal(); };
+  drawCal(); updateCount();
+
+  submit.onclick = async () => {
+    err.textContent = "";
+    const t = title.value.trim();
+    const start = +startSel.value, end = +endSel.value;
+    if(!t){ err.textContent = "イベント名を入力してください"; title.focus(); return; }
+    if(state.dates.size === 0){ err.textContent = "候補日を1日以上選んでください"; return; }
+    if(state.dates.size > LIMIT.dates){ err.textContent = `候補日は${LIMIT.dates}日までにしてください`; return; }
+    if(end <= start){ err.textContent = "終了時刻は開始時刻より後にしてください"; return; }
+    if((end-start)/SLOT * state.dates.size > LIMIT.cells){ err.textContent = "候補のマスが多すぎます。日数か時間帯を減らしてください"; return; }
+    submit.disabled = true; submit.textContent = "作成中…";
+    try{
+      const id = await Store.createEvent({ title:t, description:desc.value.trim(), dates:[...state.dates].sort(), start_min:start, end_min:end });
+      location.hash = `#/e/${id}`;
+    }catch(e){
+      err.textContent = "作成に失敗しました：" + e.message;
+      submit.disabled = false; submit.textContent = "イベントを作成する";
+    }
+  };
+  title.focus();
+}
+
+/* ============================================================
+   画面：イベント（回答・集計）
+   ============================================================ */
+let pollTimer = null;
+function stopPolling(){ clearInterval(pollTimer); pollTimer = null; }
+
+async function renderEvent(id){
+  stopPolling();
+  const app = $("#app");
+  app.replaceChildren(el("div", {class:"loading", text:"読み込み中…"}));
+  let data;
+  try{ data = await Store.getEvent(id); }
+  catch(e){ data = null; console.error(e); }
+  if(!data){
+    app.replaceChildren(el("section", {class:"card create", style:"text-align:center"},
+      el("h2", {text:"イベントが見つかりません"}),
+      el("p", {class:"note", text:"リンクが間違っているか、削除された可能性があります。"}),
+      el("a", {class:"btn", href:"#/", text:"新しくイベントを作る"}),
+    ));
+    return;
+  }
+
+  const ev = data.event;
+  const S = {
+    responses: data.responses,  // サーバー上の全員の回答
+    me: null,                   // 入力中の人 { name, answers, comments, saved:boolean }
+    tool: "o",
+    focus: null,                // みんなの予定で選択中のマス
+    dirty: false,
+    saving: null,
+  };
+  const minutes = []; for(let m = ev.start_min; m < ev.end_min; m += SLOT) minutes.push(m);
+  const allKeys = []; for(const m of minutes) for(const d of ev.dates) allKeys.push(keyOf(d, m));
+  const keyIndex = Object.fromEntries(allKeys.map((k, i) => [k, i]));
+  S.focus = allKeys[0];
+  document.title = `${ev.title} | 日調くん`;
+
+  /* --- 骨組み --- */
+  const share = el("button", {class:"btn ghost sm", type:"button", text:"🔗 共有リンクをコピー", onclick: copyLink});
+  const mineCard = el("section", {class:"card"});
+  const allCard = el("section", {class:"card"});
+  app.replaceChildren(
+    el("header", {class:"evhead"},
+      el("div", {},
+        el("a", {class:"brand", href:"#/", title:"新しいイベントを作る"}, el("span", {class:"logo sm", text:"日"}), "日調くん"),
+        el("h1", {text: ev.title}),
+        ev.description ? el("p", {class:"desc", text: ev.description}) : null,
+      ),
+      share,
+    ),
+    el("div", {class:"two"}, mineCard, allCard),
+  );
+
+  function copyLink(){
+    const url = location.href;
+    const ok = () => toast("リンクをコピーしました。みんなに送ってください！");
+    if(navigator.clipboard?.writeText){
+      navigator.clipboard.writeText(url).then(ok, () => fallbackCopy(url) && ok());
+    }else if(fallbackCopy(url)) ok();
+  }
+  function fallbackCopy(text){
+    const ta = el("textarea", {style:"position:fixed;opacity:0"}); ta.value = text;
+    document.body.append(ta); ta.select();
+    let ok = false; try{ ok = document.execCommand("copy"); }catch{}
+    ta.remove();
+    if(!ok) ask({ title:"リンクをコピーしてください", input:{ value:text }, buttons:[{id:"ok", label:"閉じる", primary:true}] });
+    return ok;
+  }
+
+  /* --- 全員の回答（入力中の人はローカルの最新状態で置き換え） --- */
+  function everyone(){
+    const list = S.responses.filter(r => !S.me || r.name !== S.me.name);
+    if(S.me && (S.me.saved || hasContent(S.me))){
+      const idx = S.responses.findIndex(r => r.name === S.me.name);
+      const mine = { name:S.me.name, answers:S.me.answers, comments:S.me.comments };
+      if(idx >= 0) list.splice(Math.min(idx, list.length), 0, mine); else list.push(mine);
+    }
+    return list;
+  }
+  const hasContent = r => Object.keys(r.answers).length > 0 || Object.keys(r.comments).length > 0;
+
+  /* --- グリッド共通 --- */
+  function buildGrid(id, cellFn){
+    const g = el("div", {class:"sgrid", id});
+    g.style.gridTemplateColumns = `44px repeat(${ev.dates.length}, minmax(58px, 72px))`;
+    g.append(el("div", {class:"corner"}));
+    for(const d of ev.dates){
+      const dt = parseYmd(d), w = dt.getDay();
+      g.append(el("div", {class:"dh"},
+        el("div", {class:"w" + (w===0?" sun":w===6?" sat":""), text:WD[w]}),
+        el("div", {class:"d", text:`${dt.getMonth()+1}/${dt.getDate()}`}),
+      ));
+    }
+    for(const m of minutes){
+      g.append(el("div", {class:"tl", text: m % 60 === 0 ? fmtMin(m) : ""}));
+      for(const d of ev.dates){
+        const key = keyOf(d, m);
+        const c = el("div", {class:"cell", "data-key":key});
+        cellFn(c, key);
+        g.append(c);
+      }
+    }
+    return el("div", {class:"gridwrap"}, g);
+  }
+
+  /* ========== 左：あなたの予定 ========== */
+  function renderMine(){
+    if(!S.me) return renderNameEntry();
+    const me = S.me;
+    const savedLbl = el("span", {class:"saved", id:"savedLbl"});
+    const tools = el("div", {class:"tools", role:"toolbar", "aria-label":"入力する記号"});
+    const TOOLS = [["o","〇 参加できる"],["t","△ たぶん"],["x","× 参加できない"],["e","消しゴム"],["c","💬 コメント"]];
+    for(const [k, label] of TOOLS){
+      tools.append(el("button", {
+        type:"button", class:`tool ${k}` + (S.tool === k ? " sel" : ""), text:label, "aria-pressed": S.tool === k ? "true" : "false",
+        onclick: () => { S.tool = k; renderMine(); },
+      }));
+    }
+    const grid = buildGrid("mineGrid", paintMineCell);
+    mineCard.replaceChildren(
+      el("h2", {text:"あなたの予定"}),
+      el("div", {class:"whohead"},
+        el("span", {class:"who", text:`${me.name} さん`}), savedLbl,
+        el("span", {class:"links"},
+          el("button", {class:"linkbtn", type:"button", text:"名前を変える", onclick: renameMe}),
+          me.saved ? el("button", {class:"linkbtn", type:"button", text:"この人の回答を削除", onclick: deleteMe}) : null,
+        ),
+      ),
+      tools,
+      el("p", {class:"hint", text: S.tool === "c"
+        ? "コメントをつけたいマスをタップしてください。"
+        : "ドラッグでまとめて塗れます。入力は自動で保存されます。"}),
+      grid,
+      el("div", {class:"done"},
+        el("button", {class:"btn block", type:"button", text:"✓ 登録を完了して次の人へ", onclick: finishMe}),
+      ),
+    );
+    updateSavedLbl();
+    bindPaint($("#mineGrid"));
+  }
+
+  function paintMineCell(c, key){
+    const a = S.me.answers[key];
+    c.className = "cell" + (a ? ` m-${a}` : "") + (S.me.comments[key] ? " cm" : "");
+    c.textContent = a ? MARK[a] : "";
+    c.title = S.me.comments[key] ? `💬 ${S.me.comments[key]}` : "";
+  }
+
+  function renderNameEntry(){
+    const input = el("input", {type:"text", maxlength:LIMIT.name, placeholder:"お名前", "aria-label":"お名前"});
+    const err = el("p", {class:"err", style:"text-align:left"});
+    const go = el("button", {class:"btn", type:"button", text:"はじめる"});
+    const start = () => {
+      const name = input.value.trim();
+      if(!name){ err.textContent = "名前を入力してください"; input.focus(); return; }
+      startAs(name);
+    };
+    go.onclick = start;
+    input.addEventListener("keydown", e => { if(e.key === "Enter" && !e.isComposing) start(); });
+
+    const people = S.responses;
+    mineCard.replaceChildren(
+      el("h2", {text:"あなたの予定"}),
+      el("p", {class:"note", text:"名前を入力して回答を始めましょう。1台の端末で何人分でも続けて登録できます（登録済みの名前を入れると編集できます）。"}),
+      el("div", {class:"namerow"}, input, go),
+      err,
+      el("div", {class:"people"},
+        el("h3", {text: people.length ? `登録済み（${people.length}人）— タップで編集` : "まだ誰も登録していません"}),
+        people.length ? el("div", {class:"chips"},
+          people.map(r => el("button", {class:"pchip", type:"button", onclick: () => startAs(r.name)},
+            r.name, el("span", {class:"pen", "aria-hidden":"true", text:"✎"}))),
+        ) : null,
+      ),
+    );
+    input.focus({ preventScroll:true });
+  }
+
+  function startAs(name){
+    const r = S.responses.find(r => r.name === name);
+    S.me = r
+      ? { name, answers: clone(r.answers || {}), comments: clone(r.comments || {}), saved: true }
+      : { name, answers: {}, comments: {}, saved: false };
+    S.dirty = false;
+    if(S.tool === "c" || S.tool === "e") S.tool = "o";
+    renderMine(); renderAll();
+  }
+
+  async function finishMe(){
+    const name = S.me.name;
+    const had = S.me.saved || hasContent(S.me);
+    clearTimeout(saveTimer);
+    if(S.dirty) await save();
+    if(S.dirty){ toast("保存に失敗しました。もう一度お試しください"); return; }
+    if(S.saving) await S.saving;
+    S.me = null;
+    renderMine(); renderAll();
+    toast(had ? `${name} さんの予定を登録しました。次の人の名前を入力できます` : "入力をやめました");
+  }
+
+  async function renameMe(){
+    const res = await ask({
+      title:"名前を変える", input:{ value:S.me.name, maxlength:LIMIT.name },
+      buttons:[{id:"cancel", label:"キャンセル"}, {id:"ok", label:"変更する", primary:true}],
+    });
+    if(res.id !== "ok") return;
+    const nn = res.value.trim();
+    if(!nn || nn === S.me.name) return;
+    if(S.responses.some(r => r.name === nn)){ toast("その名前はすでに使われています"); return; }
+    try{
+      if(S.me.saved){
+        await Store.renameResponse(id, S.me.name, nn);
+        const r = S.responses.find(r => r.name === S.me.name); if(r) r.name = nn;
+      }
+      S.me.name = nn;
+      renderMine(); renderAll();
+      toast("名前を変更しました");
+    }catch(e){ toast(e.message); }
+  }
+
+  async function deleteMe(){
+    const res = await ask({
+      title:`${S.me.name} さんの回答を削除しますか？`, text:"この操作は取り消せません。",
+      buttons:[{id:"cancel", label:"キャンセル"}, {id:"del", label:"削除する", primary:true}],
+    });
+    if(res.id !== "del") return;
+    clearTimeout(saveTimer);
+    try{
+      await Store.deleteResponse(id, S.me.name);
+      S.responses = S.responses.filter(r => r.name !== S.me.name);
+      toast(`${S.me.name} さんの回答を削除しました`);
+      S.me = null; S.dirty = false;
+      renderMine(); renderAll();
+    }catch(e){ toast("削除に失敗しました：" + e.message); }
+  }
+
+  /* --- 塗る --- */
+  let painting = false;
+  let rafPending = false;
+  function bindPaint(grid){
+    grid.addEventListener("pointerdown", e => {
+      const c = e.target.closest(".cell"); if(!c) return;
+      e.preventDefault();
+      if(S.tool === "c"){ editComment(c.dataset.key); return; }
+      painting = true;
+      applyTool(c);
+    });
+  }
+  function onPaintMove(e){
+    if(!painting) return;
+    const t = document.elementFromPoint(e.clientX, e.clientY);
+    const c = t && t.closest("#mineGrid .cell");
+    if(c) applyTool(c);
+  }
+  function onPaintEnd(){ if(painting){ painting = false; } }
+  document.addEventListener("pointermove", onPaintMove);
+  document.addEventListener("pointerup", onPaintEnd);
+  document.addEventListener("pointercancel", onPaintEnd);
+  cleanupFns.push(() => {
+    document.removeEventListener("pointermove", onPaintMove);
+    document.removeEventListener("pointerup", onPaintEnd);
+    document.removeEventListener("pointercancel", onPaintEnd);
+  });
+
+  function applyTool(c){
+    const key = c.dataset.key, cur = S.me.answers[key];
+    if(S.tool === "e"){ if(!cur) return; delete S.me.answers[key]; }
+    else { if(cur === S.tool) return; S.me.answers[key] = S.tool; }
+    paintMineCell(c, key);
+    changed();
+  }
+
+  async function editComment(key){
+    const cur = S.me.comments[key] || "";
+    const buttons = [{id:"cancel", label:"キャンセル"}, {id:"ok", label:"保存", primary:true}];
+    if(cur) buttons.unshift({id:"del", label:"削除", left:true});
+    const res = await ask({
+      title: slotLabel(key), text:"このマスへのコメント（例：遅れるかも、オンラインなら可）",
+      input:{ value:cur, multiline:true, maxlength:LIMIT.comment, placeholder:"コメントを入力" }, buttons,
+    });
+    if(res.id === "cancel") return;
+    const v = res.id === "del" ? "" : res.value.trim();
+    if(v) S.me.comments[key] = v; else delete S.me.comments[key];
+    if(v === cur) return;
+    const c = $(`#mineGrid .cell[data-key="${key}"]`); if(c) paintMineCell(c, key);
+    changed();
+  }
+
+  /* --- 自動保存 --- */
+  let saveTimer = null;
+  function changed(){
+    S.dirty = true;
+    updateSavedLbl();
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(save, 700);
+    if(!rafPending){ rafPending = true; requestAnimationFrame(() => { rafPending = false; renderAll(); }); }
+  }
+  async function save(){
+    if(!S.me || !S.dirty) return;
+    if(S.saving){ await S.saving; return save(); }
+    const me = S.me;
+    const snap = { name: me.name, answers: clone(me.answers), comments: clone(me.comments) };
+    S.dirty = false;
+    S.saveError = false;
+    updateSavedLbl("saving");
+    S.saving = (async () => {
+      try{
+        await Store.saveResponse(id, snap.name, snap.answers, snap.comments);
+        me.saved = true;
+        const r = S.responses.find(r => r.name === snap.name);
+        if(r) Object.assign(r, { answers:snap.answers, comments:snap.comments });
+        else S.responses.push({ ...snap });
+      }catch(e){
+        console.error(e);
+        if(S.me === me) S.dirty = true;
+        S.saveError = true;
+      }finally{
+        S.saving = null;
+      }
+    })();
+    await S.saving;
+    if(S.me === me){
+      updateSavedLbl();
+      // 保存中に名前が変わった・新規保存後に削除リンクを出すため
+      if(me.saved && !$(".links .linkbtn + .linkbtn")) renderMine();
+    }
+  }
+  function updateSavedLbl(state){
+    const l = $("#savedLbl"); if(!l) return;
+    l.classList.toggle("bad", !!S.saveError && S.dirty);
+    if(state === "saving") l.textContent = "保存中…";
+    else if(S.saveError && S.dirty) l.textContent = "保存に失敗しました（変更すると再試行します）";
+    else if(S.dirty) l.textContent = "未保存の変更あり";
+    else if(S.me && S.me.saved) l.textContent = "保存しました ✓";
+    else l.textContent = "";
+  }
+
+  /* ========== 右：みんなの予定 ========== */
+  function renderAll(){
+    const list = everyone();
+    const n = list.length;
+    const score = {}, anyComment = {};
+    for(const k of allKeys){ score[k] = 0; }
+    for(const r of list){
+      for(const [k, v] of Object.entries(r.answers)) if(k in score) score[k] += SCORE[v] || 0;
+      for(const k of Object.keys(r.comments)) if(k in score) anyComment[k] = true;
+    }
+    const grid = buildGrid("allGrid", (c, key) => {
+      const ratio = n ? score[key] / n : 0;
+      if(ratio > 0){
+        const a = 0.12 + 0.88 * ratio;
+        c.style.background = `rgba(139,30,47,${a.toFixed(3)})`;
+      }
+      if(anyComment[key]) c.classList.add("cm");
+      if(key === S.focus) c.classList.add("focus");
+      c.setAttribute("aria-label", `${slotLabel(key)} スコア${score[key]}`);
+    });
+    const g = $("#allGrid", grid);
+    const pick = e => {
+      const c = e.target.closest(".cell"); if(!c || c.dataset.key === S.focus) return;
+      S.focus = c.dataset.key;
+      g.querySelectorAll(".cell.focus").forEach(x => x.classList.remove("focus"));
+      c.classList.add("focus");
+      renderDetail(list);
+    };
+    g.addEventListener("pointerover", e => { if(e.pointerType === "mouse") pick(e); });
+    g.addEventListener("click", pick);
+
+    // 都合のいい時間ベスト3
+    const ranked = allKeys.filter(k => score[k] > 0)
+      .sort((a, b) => score[b] - score[a] || keyIndex[a] - keyIndex[b])
+      .slice(0, 3);
+    const best = ranked.length ? el("div", {class:"best"},
+      el("h3", {text:"都合のいい時間 ベスト3"}),
+      el("div", {class:"chips"}, ranked.map(k => {
+        const cnt = { o:0, t:0 };
+        for(const r of list){ const v = r.answers[k]; if(v in cnt) cnt[v]++; }
+        return el("button", {class:"pchip", type:"button", onclick: () => { S.focus = k; renderAll(); }},
+          slotLabel(k), el("b", {text:` 〇${cnt.o}`}), cnt.t ? el("span", {text:` △${cnt.t}`}) : null);
+      })),
+    ) : null;
+
+    allCard.replaceChildren(
+      el("h2", {}, "みんなの予定", el("small", {text:`（${n}人回答）`})),
+      el("p", {class:"note", text:"色が濃いほど都合のいい人が多い時間です（〇=1、△=0.5）。マスにカーソルを合わせる（スマホはタップ）と詳細が見られます。"}),
+      el("div", {class:"legend"}, el("span", {text:"0人"}), el("span", {class:"bar"}), el("span", {text:"全員〇"})),
+      grid,
+      best,
+      el("div", {class:"detail", id:"detail"}),
+    );
+    renderDetail(list);
+  }
+
+  function renderDetail(list){
+    const d = $("#detail"); if(!d) return;
+    const key = S.focus;
+    d.replaceChildren(el("div", {class:"dt", text: slotLabel(key)}));
+    if(!list.length){ d.append(el("div", {class:"empty", text:"まだ回答がありません"})); return; }
+    const order = { o:0, t:1, x:2, undefined:3 };
+    const rows = [...list].sort((a, b) => order[a.answers[key]] - order[b.answers[key]]);
+    d.append(el("ul", {}, rows.map(r => {
+      const v = r.answers[key], cm = r.comments[key];
+      return el("li", {class: v ? "" : "na"},
+        el("span", {class:`badge ${v || "n"}`, text: v ? MARK[v] : "−"}),
+        el("span", {class:"nm", text: r.name + (v ? "" : "（未入力）")}),
+        cm ? el("span", {class:"cmt", text:cm}) : null,
+      );
+    })));
+  }
+
+  /* --- 他の人の回答を定期的に取り込む --- */
+  async function refresh(){
+    if(document.hidden || painting || $("#ov").classList.contains("show")) return;
+    try{
+      const fresh = await Store.getEvent(id);
+      if(!fresh || location.hash !== `#/e/${id}`) return;
+      S.responses = fresh.responses;
+      if(S.me && S.me.saved && !S.responses.some(r => r.name === S.me.name) && !S.dirty && !S.saving){
+        // 他の端末で削除された
+        S.me.saved = false;
+      }
+      if(!S.me) renderMine();
+      renderAll();
+    }catch(e){ console.warn("更新に失敗:", e.message); }
+  }
+  pollTimer = setInterval(refresh, 8000);
+  const onUnload = e => { if(S.dirty){ save(); e.preventDefault(); e.returnValue = ""; } };
+  window.addEventListener("beforeunload", onUnload);
+  cleanupFns.push(() => window.removeEventListener("beforeunload", onUnload));
+
+  renderMine();
+  renderAll();
+}
+
+/* ============================================================
+   ルーティング（#/ = 作成、#/e/<id> = イベント）
+   ============================================================ */
+let cleanupFns = [];
+function route(){
+  cleanupFns.forEach(f => f()); cleanupFns = [];
+  const m = location.hash.match(/^#\/e\/([0-9a-f-]{36})$/i);
+  if(m) renderEvent(m[1].toLowerCase());
+  else renderCreate();
+  window.scrollTo(0, 0);
+}
+window.addEventListener("hashchange", route);
+Store.init().then(route);
+</script>
+</body>
+</html>
