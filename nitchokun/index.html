@@ -161,6 +161,11 @@
     font-weight:900;font-size:16px;transition:background .1s}
   #mineGrid .cell{touch-action:none;cursor:pointer}
   #mineGrid .cell:hover{outline:2px solid var(--enji-mid);outline-offset:-2px}
+  #mineGrid .cell.nostart{cursor:default}
+  #mineGrid .cell.nostart:hover{outline:none}
+  #mineGrid .cell.nostart:not(.m-o):not(.m-t):not(.m-x){opacity:.5}
+  #mineGrid .cell.pv{outline:2px dashed var(--enji);outline-offset:-2px}
+  .sgrid.dense .cell{height:24px;font-size:13px;border-radius:7px}
   .cell.m-o{background:var(--enji);color:#fff}
   .cell.m-t{background:var(--tri);color:var(--enji-dark)}
   .cell.m-x{background:var(--batsu);color:#6f5b61}
@@ -560,10 +565,9 @@ function renderCreate(){
     else if(full) rangeHint.textContent = "1日を1枠として調整します";
     else{
       const starts = startTimes(+startSel.value, +endSel.value, dur);
-      const when = starts.length <= 4
-        ? starts.map(fmtMin).join(" / ") + " に"
-        : `${fmtMin(starts[0])}〜${fmtMin(starts[starts.length-1])} の30分ごとに`;
-      rangeHint.textContent = `${fmtDur(dur)}のMTGを、${when}開始する ${starts.length} パターンで調整します`;
+      const st = starts.length === 1 ? `${fmtMin(starts[0])} のみ`
+        : `${fmtMin(starts[0])}〜${fmtMin(starts[starts.length-1])}（30分ごと）`;
+      rangeHint.textContent = `${fmtMin(+startSel.value)}〜${fmtMin(+endSel.value)} の中で、${fmtDur(dur)}のMTGを調整します。開始できる時刻：${st}`;
     }
   }
   durSel.onchange = startSel.onchange = endSel.onchange = updateRange;
@@ -578,7 +582,7 @@ function renderCreate(){
     if(state.dates.size > LIMIT.dates){ err.textContent = `候補日は${LIMIT.dates}日までにしてください`; return; }
     const prob = rangeProblem();
     if(prob){ err.textContent = prob; return; }
-    if(startTimes(start, end, dur).length * state.dates.size > LIMIT.cells){ err.textContent = "候補のマスが多すぎます。日数か時間帯を減らしてください"; return; }
+    if((end - start) / SLOT * state.dates.size > LIMIT.cells){ err.textContent = "候補のマスが多すぎます。日数か時間帯を減らしてください"; return; }
     submit.disabled = true; submit.textContent = "作成中…";
     try{
       const id = await Store.createEvent({ title:t, description:desc.value.trim(), dates:[...state.dates].sort(), start_min:start, end_min:end, slot_min:dur });
@@ -624,7 +628,14 @@ async function renderEvent(id){
   };
   const slot = ev.slot_min || SLOT;
   curSlot = slot;
+  // 個人の予定：30分ごとのマス。みんなの予定：MTG時間ぶんの枠（開始は30分刻み）
+  const cellMins = []; for(let m = ev.start_min; m < ev.end_min; m += SLOT) cellMins.push(m);
   const minutes = startTimes(ev.start_min, ev.end_min, slot);
+  const lastStart = minutes[minutes.length - 1];
+  const canStart = m => m + slot <= ev.end_min;
+  // クリックしたマスの開始時刻。開始が1通りしかない（丸一日など）なら、どこを押してもその枠
+  const startFor = m => canStart(m) ? m : minutes.length === 1 ? minutes[0] : null;
+  const windowMins = m => { const out = []; for(let x = m; x < m + slot; x += SLOT) out.push(x); return out; };
   const allKeys = []; for(const m of minutes) for(const d of ev.dates) allKeys.push(keyOf(d, m));
   const keyIndex = Object.fromEntries(allKeys.map((k, i) => [k, i]));
   S.focus = allKeys[0];
@@ -676,9 +687,11 @@ async function renderEvent(id){
   const hasContent = r => Object.keys(r.answers).length > 0 || Object.keys(r.comments).length > 0;
 
   /* --- グリッド共通 --- */
-  function buildGrid(id, cellFn){
-    const g = el("div", {class:"sgrid", id});
-    g.style.gridTemplateColumns = `${slot > SLOT && slot < DAY ? 54 : 44}px repeat(${ev.dates.length}, minmax(58px, 72px))`;
+  // rows: 行の開始時刻（分）、block: true なら各行＝MTG枠（見出しは「10:00〜15:00」）
+  function buildGrid(id, rows, block, cellFn){
+    const rangeLbl = block && slot > SLOT && slot < DAY;
+    const g = el("div", {class:"sgrid" + (rows.length > 24 ? " dense" : ""), id});
+    g.style.gridTemplateColumns = `${rangeLbl ? 92 : 44}px repeat(${ev.dates.length}, minmax(58px, 72px))`;
     g.append(el("div", {class:"corner"}));
     for(const d of ev.dates){
       const dt = parseYmd(d), w = dt.getDay();
@@ -687,10 +700,10 @@ async function renderEvent(id){
         el("div", {class:"d", text:`${dt.getMonth()+1}/${dt.getDate()}`}),
       ));
     }
-    for(const m of minutes){
-      // 30分MTGは境界線に時刻を置く。それより長いMTGは各マス＝開始時刻なので行ごとに「9:00〜」
-      const label = slot === DAY ? "終日" : slot > SLOT ? `${fmtMin(m)}〜` : m % 60 === 0 ? fmtMin(m) : "";
-      g.append(el("div", {class:"tl" + (slot > SLOT ? " allday" : ""), text: label}));
+    for(const m of rows){
+      // 30分ごとの時間軸は境界線に毎正時を置く。MTG枠の行は「10:00〜15:00」
+      const label = block && slot === DAY ? "終日" : rangeLbl ? `${fmtMin(m)}〜${fmtMin(m + slot)}` : m % 60 === 0 ? fmtMin(m) : "";
+      g.append(el("div", {class:"tl" + (block && slot > SLOT ? " allday" : ""), text: label}));
       for(const d of ev.dates){
         const key = keyOf(d, m);
         const c = el("div", {class:"cell", "data-key":key});
@@ -714,7 +727,7 @@ async function renderEvent(id){
         onclick: () => { S.tool = k; renderMine(); },
       }));
     }
-    const grid = buildGrid("mineGrid", paintMineCell);
+    const grid = buildGrid("mineGrid", cellMins, false, paintMineCell);
     mineCard.replaceChildren(
       el("h2", {text:"個人の予定"}),
       el("div", {class:"whohead"},
@@ -726,9 +739,10 @@ async function renderEvent(id){
       ),
       tools,
       el("p", {class:"hint", text: S.tool === "c"
-        ? "コメントをつけたいマスをタップしてください。"
-        : (slot > SLOT && slot < DAY ? `1マス＝その時刻に始まる${fmtDur(slot)}のMTGです。` : "")
-          + "ドラッグでまとめて塗れます。入力は自動で保存されます。"}),
+        ? "コメントをつけたい時間のマスをタップしてください。"
+        : slot === DAY ? "マスをクリックすると、丸一日ぶんがまとめて入ります。入力は自動で保存されます。"
+        : slot > SLOT ? `マスをクリックすると、そこから${fmtDur(slot)}ぶんがまとめて入ります（開始できるのは ${fmtMin(lastStart)} まで）。ドラッグで続けて入力でき、入力は自動で保存されます。`
+        : "ドラッグでまとめて塗れます。入力は自動で保存されます。"}),
       grid,
       el("div", {class:"done"},
         el("button", {class:"btn block", type:"button", text:"✓ 登録を完了して次の人へ", onclick: finishMe}),
@@ -740,7 +754,8 @@ async function renderEvent(id){
 
   function paintMineCell(c, key){
     const a = S.me.answers[key];
-    c.className = "cell" + (a ? ` m-${a}` : "") + (S.me.comments[key] ? " cm" : "");
+    const ns = S.tool !== "c" && startFor(+key.split("|")[1]) === null;
+    c.className = "cell" + (a ? ` m-${a}` : "") + (S.me.comments[key] ? " cm" : "") + (ns ? " nostart" : "");
     c.textContent = a ? MARK[a] : "";
     c.title = S.me.comments[key] ? `💬 ${S.me.comments[key]}` : "";
   }
@@ -840,10 +855,22 @@ async function renderEvent(id){
       const c = e.target.closest(".cell"); if(!c) return;
       e.preventDefault();
       if(S.tool === "c"){ editComment(c.dataset.key); return; }
+      clearPreview();
       painting = true;
       applyTool(c);
     });
+    // どこまで入るかを点線で先に見せる
+    grid.addEventListener("pointerover", e => {
+      if(painting || S.tool === "c" || e.pointerType !== "mouse") return;
+      const c = e.target.closest(".cell"); clearPreview();
+      if(!c) return;
+      const [d, m0] = c.dataset.key.split("|"); const m = startFor(+m0);
+      if(m === null) return;
+      for(const x of windowMins(m)){ grid.querySelector(`.cell[data-key="${keyOf(d, x)}"]`)?.classList.add("pv"); }
+    });
+    grid.addEventListener("pointerleave", clearPreview);
   }
+  function clearPreview(){ document.querySelectorAll("#mineGrid .cell.pv").forEach(x => x.classList.remove("pv")); }
   function onPaintMove(e){
     if(!painting) return;
     const t = document.elementFromPoint(e.clientX, e.clientY);
@@ -860,12 +887,35 @@ async function renderEvent(id){
     document.removeEventListener("pointercancel", onPaintEnd);
   });
 
+  // クリックしたマスから MTG 時間ぶんをまとめて入力（開始できないマスは何もしない）
   function applyTool(c){
-    const key = c.dataset.key, cur = S.me.answers[key];
-    if(S.tool === "e"){ if(!cur) return; delete S.me.answers[key]; }
-    else { if(cur === S.tool) return; S.me.answers[key] = S.tool; }
-    paintMineCell(c, key);
+    const [d, m0] = c.dataset.key.split("|"); const m = startFor(+m0);
+    if(m === null) return;
+    const ans = S.me.answers;
+    let touched = false;
+    for(const x of windowMins(m)){
+      const key = keyOf(d, x), cur = ans[key];
+      if(S.tool === "e"){ if(cur){ delete ans[key]; touched = true; } }
+      else if(cur !== S.tool){ ans[key] = S.tool; touched = true; }
+    }
+    if(!touched) return;
+    if(S.tool === "e") dropShortRuns(d);
+    for(const x of cellMins){
+      const key = keyOf(d, x);
+      const cell = $(`#mineGrid .cell[data-key="${key}"]`); if(cell) paintMineCell(cell, key);
+    }
     changed();
+  }
+  // MTG 時間より短い入力の切れ端は MTG を開けないので消す
+  function dropShortRuns(d){
+    const ans = S.me.answers;
+    let run = [];
+    const flush = () => { if(run.length * SLOT < slot) run.forEach(k => delete ans[k]); run = []; };
+    for(const x of cellMins){
+      const key = keyOf(d, x);
+      if(ans[key]) run.push(key); else flush();
+    }
+    flush();
   }
 
   async function editComment(key){
@@ -873,7 +923,7 @@ async function renderEvent(id){
     const buttons = [{id:"cancel", label:"キャンセル"}, {id:"ok", label:"保存", primary:true}];
     if(cur) buttons.unshift({id:"del", label:"削除", left:true});
     const res = await ask({
-      title: slotLabel(key), text:"このマスへのコメント（例：遅れるかも、オンラインなら可）",
+      title: slotLabel(key, SLOT), text:"この時間へのコメント（例：遅れるかも、オンラインなら可）",
       input:{ value:cur, multiline:true, maxlength:LIMIT.comment, placeholder:"コメントを入力" }, buttons,
     });
     if(res.id === "cancel") return;
@@ -934,16 +984,38 @@ async function renderEvent(id){
   }
 
   /* ========== 右：みんなの予定 ========== */
+  // ある人の MTG 枠の回答：全部〇→〇、〇と△だけ→△、×が1つでも→×、
+  // 何も入力なし→undefined、一部だけ入力→"p"
+  function blockAnswer(r, key){
+    const [d, m] = key.split("|");
+    let all = true, any = false, hasT = false, hasX = false;
+    for(const x of windowMins(+m)){
+      const v = r.answers[keyOf(d, x)];
+      if(!v){ all = false; continue; }
+      any = true;
+      if(v === "x") hasX = true; else if(v === "t") hasT = true;
+    }
+    if(hasX) return "x";
+    if(!any) return undefined;
+    if(!all) return "p";
+    return hasT ? "t" : "o";
+  }
+  function blockComments(r, key){
+    const [d, m] = key.split("|");
+    return windowMins(+m).map(x => r.comments[keyOf(d, x)]).filter(Boolean);
+  }
+
   function renderAll(){
     const list = everyone();
     const n = list.length;
-    const score = {}, anyComment = {};
-    for(const k of allKeys){ score[k] = 0; }
-    for(const r of list){
-      for(const [k, v] of Object.entries(r.answers)) if(k in score) score[k] += SCORE[v] || 0;
-      for(const k of Object.keys(r.comments)) if(k in score) anyComment[k] = true;
+    const score = {}, anyComment = {}, ans = {};
+    for(const k of allKeys){
+      score[k] = 0;
+      ans[k] = list.map(r => blockAnswer(r, k));
+      for(const v of ans[k]) score[k] += SCORE[v] || 0;
+      anyComment[k] = list.some(r => blockComments(r, k).length);
     }
-    const grid = buildGrid("allGrid", (c, key) => {
+    const grid = buildGrid("allGrid", minutes, true, (c, key) => {
       const ratio = n ? score[key] / n : 0;
       if(ratio > 0){
         const a = 0.12 + 0.88 * ratio;
@@ -972,7 +1044,7 @@ async function renderEvent(id){
       el("h3", {text:"都合のいい時間 ベスト3"}),
       el("div", {class:"chips"}, ranked.map(k => {
         const cnt = { o:0, t:0 };
-        for(const r of list){ const v = r.answers[k]; if(v in cnt) cnt[v]++; }
+        for(const v of ans[k]) if(v in cnt) cnt[v]++;
         return el("button", {class:"pchip", type:"button", onclick: () => { S.focus = k; renderAll(); }},
           slotLabel(k), el("b", {text:` 〇${cnt.o}`}), cnt.t ? el("span", {text:` △${cnt.t}`}) : null);
       })),
@@ -994,14 +1066,15 @@ async function renderEvent(id){
     const key = S.focus;
     d.replaceChildren(el("div", {class:"dt", text: slotLabel(key)}));
     if(!list.length){ d.append(el("div", {class:"empty", text:"まだ回答がありません"})); return; }
-    const order = { o:0, t:1, x:2, undefined:3 };
-    const rows = [...list].sort((a, b) => order[a.answers[key]] - order[b.answers[key]]);
-    d.append(el("ul", {}, rows.map(r => {
-      const v = r.answers[key], cm = r.comments[key];
-      return el("li", {class: v ? "" : "na"},
-        el("span", {class:`badge ${v || "n"}`, text: v ? MARK[v] : "−"}),
-        el("span", {class:"nm", text: r.name + (v ? "" : "（未入力）")}),
-        cm ? el("span", {class:"cmt", text:cm}) : null,
+    const order = { o:0, t:1, x:2, p:3, undefined:4 };
+    const rows = list.map(r => ({ r, v: blockAnswer(r, key), cms: blockComments(r, key) }))
+      .sort((a, b) => order[a.v] - order[b.v]);
+    d.append(el("ul", {}, rows.map(({ r, v, cms }) => {
+      const ok = v && v !== "p";
+      return el("li", {class: ok ? "" : "na"},
+        el("span", {class:`badge ${ok ? v : "n"}`, text: ok ? MARK[v] : "−"}),
+        el("span", {class:"nm", text: r.name + (ok ? "" : v === "p" ? "（一部のみ入力）" : "（未入力）")}),
+        cms.length ? el("span", {class:"cmt", text: cms.join(" / ")}) : null,
       );
     })));
   }
