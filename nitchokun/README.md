@@ -11,7 +11,7 @@
 - 8秒ごとに他の人の回答を自動で取り込む
 
 ## セットアップ
-1. Supabase の SQL Editor で `schema.sql` を実行する（「今日何食べる？」と同じプロジェクトで OK。テーブル名は `nitcho_` で始まる）
+1. 日調くん専用の Supabase プロジェクトの SQL Editor で `schema.sql` を実行する（接続先は `index.html` の `SUPABASE_URL` / `SUPABASE_ANON_KEY`）
 2. `index.html` を公開する
    - 今の Netlify サイトのままなら `/nitchokun/` で開ける
    - 独立したサイトにしたい場合は、Netlify で新しいサイトを作り Base directory を `nitchokun` にする
