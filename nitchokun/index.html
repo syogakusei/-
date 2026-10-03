@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>日調くん</title>
-<meta name="description" content="候補日を選んでリンクを送るだけ。30分ごとに○△×で回答できる日程調整アプリ。">
+<meta name="description" content="候補日とMTG時間を決めてリンクを送るだけの日程調整アプリ。">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -88,6 +88,10 @@
   .timerow{display:flex;align-items:center;gap:12px;margin:24px 0 26px;flex-wrap:wrap}
   .timerow .fld{margin:0}
   .timerow select{width:auto;padding:10px 14px;font-weight:700}
+  .timerow select:disabled{opacity:.55}
+  .timerow + .timerow{margin-top:-10px}
+  .rangehint{font-size:13px;color:var(--muted);margin:-14px 0 22px}
+  .rangehint.bad{color:var(--enji);font-weight:700}
 
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:999px;
     background:var(--enji);color:#fff;font-weight:900;font-size:17px;padding:16px 28px;letter-spacing:.05em;
@@ -105,6 +109,7 @@
   .evhead{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:26px;flex-wrap:wrap}
   .brand{display:inline-flex;align-items:center;gap:8px;font-family:var(--head);color:var(--enji);text-decoration:none;font-size:17px;letter-spacing:.05em}
   .evhead h1{font-family:var(--head);font-weight:400;font-size:38px;margin:10px 0 4px;letter-spacing:.03em;word-break:break-word}
+  .evhead .durtag{display:inline-block;margin:2px 0 8px;padding:4px 12px;border-radius:999px;background:var(--enji-soft);color:var(--enji);font-weight:700;font-size:13px}
   .evhead .desc{color:var(--muted);white-space:pre-wrap;word-break:break-word;margin:0}
   .two{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start}
   @media (max-width:960px){.two{grid-template-columns:1fr}}
@@ -151,6 +156,7 @@
   .sgrid .dh .w.sun{color:var(--enji)} .sgrid .dh .w.sat{color:var(--sat)}
   .sgrid .dh .d{font-weight:900;font-size:17px}
   .sgrid .tl{font-size:12px;color:var(--muted);text-align:right;padding-right:6px;transform:translateY(-8px);white-space:nowrap}
+  .sgrid .tl.allday{transform:none;align-self:center}
   .cell{height:34px;border-radius:10px;background:var(--cell);position:relative;display:grid;place-items:center;
     font-weight:900;font-size:16px;transition:background .1s}
   #mineGrid .cell{touch-action:none;cursor:pointer}
@@ -252,10 +258,20 @@ const pad = n => String(n).padStart(2,"0");
 const ymd = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 const parseYmd = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); };
 const fmtMin = m => `${Math.floor(m/60)}:${pad(m%60)}`;
+const DAY = 24*60;
+function fmtDur(m){
+  if(m === DAY) return "丸一日（24時間）";
+  const h = Math.floor(m/60), mm = m % 60;
+  return (h ? `${h}時間` : "") + (mm ? `${mm}分` : "");
+}
 const keyOf = (date, min) => `${date}|${min}`;
-function slotLabel(key){
+// 枠の長さ（分）。イベント作成時に決めた MTG 時間。古いイベントは30分
+let curSlot = SLOT;
+function slotLabel(key, slot = curSlot){
   const [d, m] = key.split("|"); const dt = parseYmd(d);
-  return `${dt.getMonth()+1}/${dt.getDate()}（${WD[dt.getDay()]}）${fmtMin(+m)}〜${fmtMin(+m+SLOT)}`;
+  const day = `${dt.getMonth()+1}/${dt.getDate()}（${WD[dt.getDay()]}）`;
+  if(slot === DAY) return `${day}終日`;
+  return `${day}${fmtMin(+m)}〜${fmtMin(+m+slot)}`;
 }
 function el(tag, attrs={}, ...kids){
   const e = document.createElement(tag);
@@ -366,6 +382,7 @@ const Store = {
     if(this.mode === "remote"){
       return this.rpc("nitcho_create_event", {
         p_title: ev.title, p_description: ev.description, p_dates: ev.dates, p_start: ev.start_min, p_end: ev.end_min,
+        p_slot: ev.slot_min,
       });
     }
     const db = this._load(); const id = uuid();
@@ -431,26 +448,31 @@ function renderCreate(){
   const prev = el("button", {type:"button", "aria-label":"前の月", text:"‹"});
   const next = el("button", {type:"button", "aria-label":"次の月", text:"›"});
   const cal = el("div", {class:"cal"});
+  const durSel = el("select", {"aria-label":"MTG時間", id:"dur"});
+  for(let m = SLOT; m <= DAY; m += SLOT) durSel.append(el("option", {value:m, text:fmtDur(m)}));
+  durSel.value = 60;
   const startSel = el("select", {"aria-label":"開始時刻"});
   const endSel = el("select", {"aria-label":"終了時刻"});
   for(let m = 0; m < 24*60; m += SLOT) startSel.append(el("option", {value:m, text:fmtMin(m)}));
   for(let m = SLOT; m <= 24*60; m += SLOT) endSel.append(el("option", {value:m, text:fmtMin(m)}));
   startSel.value = 9*60; endSel.value = 18*60;
   const err = el("p", {class:"err"});
+  const rangeHint = el("p", {class:"rangehint"});
   const submit = el("button", {class:"btn block", type:"button", text:"イベントを作成する"});
 
   app.replaceChildren(
     el("section", {class:"hero"},
       el("div", {class:"logo", "aria-hidden":"true", text:"日"}),
       el("h1", {text:"日調くん"}),
-      el("p", {text:"候補日を選んでリンクを送るだけ。30分ごとに 〇 △ × で回答できます。"}),
     ),
     el("section", {class:"card create"},
       el("label", {class:"fld", for:"title", text:"イベント名"}), title,
       el("label", {class:"fld", for:"desc", text:"説明（任意）"}), desc,
       el("div", {class:"calhead"}, countLbl, el("div", {class:"monthnav"}, prev, monthLbl, next)),
       cal,
+      el("div", {class:"timerow"}, el("label", {class:"fld", for:"dur", text:"MTG時間"}), durSel),
       el("div", {class:"timerow"}, el("span", {class:"fld", text:"時間帯"}), startSel, el("span", {text:"〜"}), endSel),
+      rangeHint,
       submit, err,
     ),
   );
@@ -507,18 +529,55 @@ function renderCreate(){
   next.onclick = () => { state.month = new Date(state.month.getFullYear(), state.month.getMonth()+1, 1); drawCal(); };
   drawCal(); updateCount();
 
+  // 時間帯が MTG 時間で割り切れるかを確認して案内を出す
+  let lastPartial = { start: 9*60, end: 18*60 };
+  function rangeProblem(){
+    const dur = +durSel.value, start = +startSel.value, end = +endSel.value;
+    if(end <= start) return "終了時刻は開始時刻より後にしてください";
+    const len = end - start;
+    if(len < dur) return `時間帯（${fmtDur(len)}）が MTG時間（${fmtDur(dur)}）より短くなっています`;
+    if(len % dur){
+      const lo = start + Math.floor(len/dur)*dur, hi = lo + dur;
+      const opts = [lo, hi].filter(x => x > start && x <= DAY).map(fmtMin).join(" か ");
+      return `時間帯（${fmtDur(len)}）が MTG時間（${fmtDur(dur)}）で割り切れません。終了時刻を ${opts} にしてください`;
+    }
+    return "";
+  }
+  function updateRange(){
+    const dur = +durSel.value;
+    const full = dur === DAY;
+    if(full && !startSel.disabled){
+      lastPartial = { start: +startSel.value, end: +endSel.value };
+      startSel.value = 0; endSel.value = DAY;
+    }else if(!full && startSel.disabled){
+      startSel.value = lastPartial.start; endSel.value = lastPartial.end;
+    }
+    startSel.disabled = endSel.disabled = full;
+    const prob = rangeProblem();
+    rangeHint.classList.toggle("bad", !!prob);
+    if(prob) rangeHint.textContent = prob;
+    else if(full) rangeHint.textContent = "1日を1枠として調整します";
+    else{
+      const n = (+endSel.value - +startSel.value) / dur;
+      rangeHint.textContent = `${fmtMin(+startSel.value)}〜${fmtMin(+endSel.value)} を ${fmtDur(dur)}ずつ、1日 ${n} 枠に区切って調整します`;
+    }
+  }
+  durSel.onchange = startSel.onchange = endSel.onchange = updateRange;
+  updateRange();
+
   submit.onclick = async () => {
     err.textContent = "";
     const t = title.value.trim();
-    const start = +startSel.value, end = +endSel.value;
+    const start = +startSel.value, end = +endSel.value, dur = +durSel.value;
     if(!t){ err.textContent = "イベント名を入力してください"; title.focus(); return; }
     if(state.dates.size === 0){ err.textContent = "候補日を1日以上選んでください"; return; }
     if(state.dates.size > LIMIT.dates){ err.textContent = `候補日は${LIMIT.dates}日までにしてください`; return; }
-    if(end <= start){ err.textContent = "終了時刻は開始時刻より後にしてください"; return; }
-    if((end-start)/SLOT * state.dates.size > LIMIT.cells){ err.textContent = "候補のマスが多すぎます。日数か時間帯を減らしてください"; return; }
+    const prob = rangeProblem();
+    if(prob){ err.textContent = prob; return; }
+    if((end-start)/dur * state.dates.size > LIMIT.cells){ err.textContent = "候補のマスが多すぎます。日数か時間帯を減らしてください"; return; }
     submit.disabled = true; submit.textContent = "作成中…";
     try{
-      const id = await Store.createEvent({ title:t, description:desc.value.trim(), dates:[...state.dates].sort(), start_min:start, end_min:end });
+      const id = await Store.createEvent({ title:t, description:desc.value.trim(), dates:[...state.dates].sort(), start_min:start, end_min:end, slot_min:dur });
       location.hash = `#/e/${id}`;
     }catch(e){
       err.textContent = "作成に失敗しました：" + e.message;
@@ -559,7 +618,9 @@ async function renderEvent(id){
     dirty: false,
     saving: null,
   };
-  const minutes = []; for(let m = ev.start_min; m < ev.end_min; m += SLOT) minutes.push(m);
+  const slot = ev.slot_min || SLOT;
+  curSlot = slot;
+  const minutes = []; for(let m = ev.start_min; m + slot <= ev.end_min; m += slot) minutes.push(m);
   const allKeys = []; for(const m of minutes) for(const d of ev.dates) allKeys.push(keyOf(d, m));
   const keyIndex = Object.fromEntries(allKeys.map((k, i) => [k, i]));
   S.focus = allKeys[0];
@@ -574,6 +635,7 @@ async function renderEvent(id){
       el("div", {},
         el("a", {class:"brand", href:"#/", title:"新しいイベントを作る"}, el("span", {class:"logo sm", text:"日"}), "日調くん"),
         el("h1", {text: ev.title}),
+        el("p", {class:"durtag", text:`MTG時間：${fmtDur(slot)}`}),
         ev.description ? el("p", {class:"desc", text: ev.description}) : null,
       ),
       share,
@@ -622,7 +684,8 @@ async function renderEvent(id){
       ));
     }
     for(const m of minutes){
-      g.append(el("div", {class:"tl", text: m % 60 === 0 ? fmtMin(m) : ""}));
+      const label = slot === DAY ? "終日" : (slot >= 60 || m % 60 === 0) ? fmtMin(m) : "";
+      g.append(el("div", {class:"tl" + (slot === DAY ? " allday" : ""), text: label}));
       for(const d of ev.dates){
         const key = keyOf(d, m);
         const c = el("div", {class:"cell", "data-key":key});
@@ -633,7 +696,7 @@ async function renderEvent(id){
     return el("div", {class:"gridwrap"}, g);
   }
 
-  /* ========== 左：あなたの予定 ========== */
+  /* ========== 左：個人の予定 ========== */
   function renderMine(){
     if(!S.me) return renderNameEntry();
     const me = S.me;
@@ -648,7 +711,7 @@ async function renderEvent(id){
     }
     const grid = buildGrid("mineGrid", paintMineCell);
     mineCard.replaceChildren(
-      el("h2", {text:"あなたの予定"}),
+      el("h2", {text:"個人の予定"}),
       el("div", {class:"whohead"},
         el("span", {class:"who", text:`${me.name} さん`}), savedLbl,
         el("span", {class:"links"},
@@ -666,7 +729,7 @@ async function renderEvent(id){
       ),
     );
     updateSavedLbl();
-    bindPaint($("#mineGrid"));
+    bindPaint($("#mineGrid", mineCard));
   }
 
   function paintMineCell(c, key){
@@ -690,7 +753,7 @@ async function renderEvent(id){
 
     const people = S.responses;
     mineCard.replaceChildren(
-      el("h2", {text:"あなたの予定"}),
+      el("h2", {text:"個人の予定"}),
       el("p", {class:"note", text:"名前を入力して回答を始めましょう。1台の端末で何人分でも続けて登録できます（登録済みの名前を入れると編集できます）。"}),
       el("div", {class:"namerow"}, input, go),
       err,
@@ -848,10 +911,10 @@ async function renderEvent(id){
       }
     })();
     await S.saving;
-    if(S.me === me){
+    if(S.me === me && mineCard.isConnected){
       updateSavedLbl();
       // 保存中に名前が変わった・新規保存後に削除リンクを出すため
-      if(me.saved && !$(".links .linkbtn + .linkbtn")) renderMine();
+      if(me.saved && !$(".links .linkbtn + .linkbtn", mineCard)) renderMine();
     }
   }
   function updateSavedLbl(state){
@@ -911,7 +974,7 @@ async function renderEvent(id){
 
     allCard.replaceChildren(
       el("h2", {}, "みんなの予定", el("small", {text:`（${n}人回答）`})),
-      el("p", {class:"note", text:"色が濃いほど都合のいい人が多い時間です（〇=1、△=0.5）。マスにカーソルを合わせる（スマホはタップ）と詳細が見られます。"}),
+      el("p", {class:"note", text:"色が濃いほど都合のいい人が多い時間です"}),
       el("div", {class:"legend"}, el("span", {text:"0人"}), el("span", {class:"bar"}), el("span", {text:"全員〇"})),
       grid,
       best,

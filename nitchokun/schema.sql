@@ -15,8 +15,11 @@ create table public.nitcho_events (
   dates date[] not null check (cardinality(dates) between 1 and 62),
   start_min int not null check (start_min between 0 and 1410 and start_min % 30 = 0),
   end_min int not null check (end_min between 30 and 1440 and end_min % 30 = 0),
+  -- MTG時間（分）。調整画面はこの長さの枠で区切る
+  slot_min int not null default 30 check (slot_min between 30 and 1440 and slot_min % 30 = 0),
   created_at timestamptz not null default now(),
-  check (end_min > start_min)
+  check (end_min > start_min),
+  check ((end_min - start_min) % slot_min = 0)
 );
 
 create table public.nitcho_responses (
@@ -46,7 +49,7 @@ as $$ select 'ok'::text; $$;
 
 -- イベント作成
 create function public.nitcho_create_event(
-  p_title text, p_description text, p_dates date[], p_start int, p_end int
+  p_title text, p_description text, p_dates date[], p_start int, p_end int, p_slot int default 30
 )
 returns uuid
 language plpgsql
@@ -55,14 +58,14 @@ as $$
 declare
   new_id uuid;
 begin
-  if ((p_end - p_start) / 30) * cardinality(p_dates) > 3000 then
+  if ((p_end - p_start) / p_slot) * cardinality(p_dates) > 3000 then
     raise exception '候補のマスが多すぎます（日数か時間帯を減らしてください）';
   end if;
-  insert into nitcho_events (title, description, dates, start_min, end_min)
+  insert into nitcho_events (title, description, dates, start_min, end_min, slot_min)
   values (
     trim(p_title), coalesce(p_description, ''),
     (select array_agg(d order by d) from (select distinct unnest(p_dates) as d) s),
-    p_start, p_end
+    p_start, p_end, p_slot
   )
   returning id into new_id;
   return new_id;
@@ -79,7 +82,8 @@ as $$
   select json_build_object(
     'event', json_build_object(
       'id', e.id, 'title', e.title, 'description', e.description,
-      'dates', e.dates, 'start_min', e.start_min, 'end_min', e.end_min
+      'dates', e.dates, 'start_min', e.start_min, 'end_min', e.end_min,
+      'slot_min', e.slot_min
     ),
     'responses', coalesce((
       select json_agg(json_build_object(
@@ -139,7 +143,7 @@ as $$
 $$;
 
 grant execute on function public.nitcho_ping() to anon, authenticated;
-grant execute on function public.nitcho_create_event(text, text, date[], int, int) to anon, authenticated;
+grant execute on function public.nitcho_create_event(text, text, date[], int, int, int) to anon, authenticated;
 grant execute on function public.nitcho_get_event(uuid) to anon, authenticated;
 grant execute on function public.nitcho_save_response(uuid, text, jsonb, jsonb) to anon, authenticated;
 grant execute on function public.nitcho_rename_response(uuid, text, text) to anon, authenticated;
