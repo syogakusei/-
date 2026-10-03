@@ -19,7 +19,8 @@ create table public.nitcho_events (
   slot_min int not null default 30 check (slot_min between 30 and 1440 and slot_min % 30 = 0),
   created_at timestamptz not null default now(),
   check (end_min > start_min),
-  check ((end_min - start_min) % slot_min = 0)
+  -- 時間帯の中で MTG の開始時刻を30分刻みで並べるので、時間帯が MTG 時間以上あればよい
+  constraint nitcho_events_range_fits_slot check (end_min - start_min >= slot_min)
 );
 
 create table public.nitcho_responses (
@@ -58,7 +59,7 @@ as $$
 declare
   new_id uuid;
 begin
-  if ((p_end - p_start) / p_slot) * cardinality(p_dates) > 3000 then
+  if (((p_end - p_start - p_slot) / 30) + 1) * cardinality(p_dates) > 3000 then
     raise exception '候補のマスが多すぎます（日数か時間帯を減らしてください）';
   end if;
   insert into nitcho_events (title, description, dates, start_min, end_min, slot_min)

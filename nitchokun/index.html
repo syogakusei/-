@@ -267,6 +267,12 @@ function fmtDur(m){
 const keyOf = (date, min) => `${date}|${min}`;
 // 枠の長さ（分）。イベント作成時に決めた MTG 時間。古いイベントは30分
 let curSlot = SLOT;
+// MTG の開始時刻の候補（30分刻み・終了が時間帯に収まるもの）
+function startTimes(start, end, slot){
+  const out = [];
+  for(let m = start; m + slot <= end; m += SLOT) out.push(m);
+  return out;
+}
 function slotLabel(key, slot = curSlot){
   const [d, m] = key.split("|"); const dt = parseYmd(d);
   const day = `${dt.getMonth()+1}/${dt.getDate()}（${WD[dt.getDay()]}）`;
@@ -536,11 +542,6 @@ function renderCreate(){
     if(end <= start) return "終了時刻は開始時刻より後にしてください";
     const len = end - start;
     if(len < dur) return `時間帯（${fmtDur(len)}）が MTG時間（${fmtDur(dur)}）より短くなっています`;
-    if(len % dur){
-      const lo = start + Math.floor(len/dur)*dur, hi = lo + dur;
-      const opts = [lo, hi].filter(x => x > start && x <= DAY).map(fmtMin).join(" か ");
-      return `時間帯（${fmtDur(len)}）が MTG時間（${fmtDur(dur)}）で割り切れません。終了時刻を ${opts} にしてください`;
-    }
     return "";
   }
   function updateRange(){
@@ -558,8 +559,11 @@ function renderCreate(){
     if(prob) rangeHint.textContent = prob;
     else if(full) rangeHint.textContent = "1日を1枠として調整します";
     else{
-      const n = (+endSel.value - +startSel.value) / dur;
-      rangeHint.textContent = `${fmtMin(+startSel.value)}〜${fmtMin(+endSel.value)} を ${fmtDur(dur)}ずつ、1日 ${n} 枠に区切って調整します`;
+      const starts = startTimes(+startSel.value, +endSel.value, dur);
+      const when = starts.length <= 4
+        ? starts.map(fmtMin).join(" / ") + " に"
+        : `${fmtMin(starts[0])}〜${fmtMin(starts[starts.length-1])} の30分ごとに`;
+      rangeHint.textContent = `${fmtDur(dur)}のMTGを、${when}開始する ${starts.length} パターンで調整します`;
     }
   }
   durSel.onchange = startSel.onchange = endSel.onchange = updateRange;
@@ -574,7 +578,7 @@ function renderCreate(){
     if(state.dates.size > LIMIT.dates){ err.textContent = `候補日は${LIMIT.dates}日までにしてください`; return; }
     const prob = rangeProblem();
     if(prob){ err.textContent = prob; return; }
-    if((end-start)/dur * state.dates.size > LIMIT.cells){ err.textContent = "候補のマスが多すぎます。日数か時間帯を減らしてください"; return; }
+    if(startTimes(start, end, dur).length * state.dates.size > LIMIT.cells){ err.textContent = "候補のマスが多すぎます。日数か時間帯を減らしてください"; return; }
     submit.disabled = true; submit.textContent = "作成中…";
     try{
       const id = await Store.createEvent({ title:t, description:desc.value.trim(), dates:[...state.dates].sort(), start_min:start, end_min:end, slot_min:dur });
@@ -620,7 +624,7 @@ async function renderEvent(id){
   };
   const slot = ev.slot_min || SLOT;
   curSlot = slot;
-  const minutes = []; for(let m = ev.start_min; m + slot <= ev.end_min; m += slot) minutes.push(m);
+  const minutes = startTimes(ev.start_min, ev.end_min, slot);
   const allKeys = []; for(const m of minutes) for(const d of ev.dates) allKeys.push(keyOf(d, m));
   const keyIndex = Object.fromEntries(allKeys.map((k, i) => [k, i]));
   S.focus = allKeys[0];
@@ -674,7 +678,7 @@ async function renderEvent(id){
   /* --- グリッド共通 --- */
   function buildGrid(id, cellFn){
     const g = el("div", {class:"sgrid", id});
-    g.style.gridTemplateColumns = `44px repeat(${ev.dates.length}, minmax(58px, 72px))`;
+    g.style.gridTemplateColumns = `${slot > SLOT && slot < DAY ? 54 : 44}px repeat(${ev.dates.length}, minmax(58px, 72px))`;
     g.append(el("div", {class:"corner"}));
     for(const d of ev.dates){
       const dt = parseYmd(d), w = dt.getDay();
@@ -684,8 +688,9 @@ async function renderEvent(id){
       ));
     }
     for(const m of minutes){
-      const label = slot === DAY ? "終日" : (slot >= 60 || m % 60 === 0) ? fmtMin(m) : "";
-      g.append(el("div", {class:"tl" + (slot === DAY ? " allday" : ""), text: label}));
+      // 30分MTGは境界線に時刻を置く。それより長いMTGは各マス＝開始時刻なので行ごとに「9:00〜」
+      const label = slot === DAY ? "終日" : slot > SLOT ? `${fmtMin(m)}〜` : m % 60 === 0 ? fmtMin(m) : "";
+      g.append(el("div", {class:"tl" + (slot > SLOT ? " allday" : ""), text: label}));
       for(const d of ev.dates){
         const key = keyOf(d, m);
         const c = el("div", {class:"cell", "data-key":key});
@@ -722,7 +727,8 @@ async function renderEvent(id){
       tools,
       el("p", {class:"hint", text: S.tool === "c"
         ? "コメントをつけたいマスをタップしてください。"
-        : "ドラッグでまとめて塗れます。入力は自動で保存されます。"}),
+        : (slot > SLOT && slot < DAY ? `1マス＝その時刻に始まる${fmtDur(slot)}のMTGです。` : "")
+          + "ドラッグでまとめて塗れます。入力は自動で保存されます。"}),
       grid,
       el("div", {class:"done"},
         el("button", {class:"btn block", type:"button", text:"✓ 登録を完了して次の人へ", onclick: finishMe}),
