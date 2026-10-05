@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>日調くん</title>
-<meta name="description" content="候補日とMTG時間を決めてリンクを送るだけの日程調整アプリ。">
+<meta name="description" content="候補日と想定時間を決めてリンクを送るだけの日程調整アプリ。">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -93,6 +93,7 @@
   .timerow + .timerow{margin-top:-10px}
   .rangehint{font-size:13px;color:var(--muted);margin:-14px 0 22px}
   .rangehint.bad{color:var(--enji);font-weight:700}
+  .rangehint:empty{display:none}
 
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:999px;
     background:var(--enji);color:#fff;font-weight:900;font-size:17px;padding:16px 28px;letter-spacing:.05em;
@@ -471,7 +472,7 @@ function renderCreate(){
   const prev = el("button", {type:"button", "aria-label":"前の月", text:"‹"});
   const next = el("button", {type:"button", "aria-label":"次の月", text:"›"});
   const cal = el("div", {class:"cal"});
-  const durSel = el("select", {"aria-label":"MTG時間", id:"dur"});
+  const durSel = el("select", {"aria-label":"想定時間", id:"dur"});
   durSel.append(
     el("optgroup", {label:"日にち単位"}, el("option", {value:DAY, text:"一日（日にちで調整）"})),
     el("optgroup", {label:"時間単位"}, (() => {
@@ -499,7 +500,7 @@ function renderCreate(){
       el("label", {class:"fld", for:"desc", text:"説明（任意）"}), desc,
       el("div", {class:"calhead"}, countLbl, el("div", {class:"monthnav"}, prev, monthLbl, next)),
       cal,
-      el("div", {class:"timerow"}, el("label", {class:"fld", for:"dur", text:"MTG時間"}), durSel),
+      el("div", {class:"timerow"}, el("label", {class:"fld", for:"dur", text:"想定時間"}), durSel),
       el("div", {class:"timerow", id:"rangeRow"}, el("span", {class:"fld", text:"時間帯"}), startSel, el("span", {text:"〜"}), endSel),
       rangeHint,
       submit, err,
@@ -558,13 +559,13 @@ function renderCreate(){
   next.onclick = () => { state.month = new Date(state.month.getFullYear(), state.month.getMonth()+1, 1); drawCal(); };
   drawCal(); updateCount();
 
-  // 時間帯が MTG 時間で割り切れるかを確認して案内を出す
+  // 時間帯が想定時間より短くないかを確認して案内を出す
   let lastPartial = { start: 9*60, end: 18*60 };
   function rangeProblem(){
     const dur = +durSel.value, start = +startSel.value, end = +endSel.value;
     if(end <= start) return "終了時刻は開始時刻より後にしてください";
     const len = end - start;
-    if(len < dur) return `時間帯（${fmtDur(len)}）が MTG時間（${fmtDur(dur)}）より短くなっています`;
+    if(len < dur) return `時間帯（${fmtDur(len)}）が想定時間（${fmtDur(dur)}）より短くなっています`;
     return "";
   }
   function updateRange(){
@@ -582,7 +583,7 @@ function renderCreate(){
     rangeHint.classList.toggle("bad", !!prob);
     if(prob) rangeHint.textContent = prob;
     else if(full) rangeHint.textContent = "候補日ごとに、一日まるごと 〇 △ × で回答してもらいます";
-    else rangeHint.textContent = `${fmtMin(+startSel.value)}〜${fmtMin(+endSel.value)} の中で、${fmtDur(dur)}のMTGを調整します（各自は30分ごとに回答）`;
+    else rangeHint.textContent = "";
   }
   durSel.onchange = startSel.onchange = endSel.onchange = updateRange;
   updateRange();
@@ -637,11 +638,11 @@ async function renderEvent(id){
     me: null,                   // 入力中の人 { name, answers, comments, saved:boolean }
     tool: "o",
     focus: null,                // みんなの予定で選択中の枠 { d, m, len }
-    bestDur: null,              // 「最適な時間」で選んでいる MTG 時間（この画面だけ・保存しない）
+    bestDur: null,              // 「最適な時間」で選んでいる 想定時間（この画面だけ・保存しない）
     dirty: false,
     saving: null,
   };
-  const slot = ev.slot_min || SLOT;   // 作成時に決めた MTG 時間
+  const slot = ev.slot_min || SLOT;   // 作成時に決めた 想定時間
   // 一日（日にち単位）のイベントは、1日＝1マス（キーは「日付|0」）
   const dayMode = slot === DAY;
   const unit = dayMode ? DAY : SLOT;
@@ -663,7 +664,7 @@ async function renderEvent(id){
         el("h1", {text: ev.title}),
         dayMode
           ? el("p", {class:"durtag"}, "日程 ", el("b", {text:"一日単位"}), el("span", {text:"（日にちごとに 〇△× で調整）"}))
-          : el("p", {class:"durtag"}, "MTG時間 ", el("b", {text: fmtDur(slot)}),
+          : el("p", {class:"durtag"}, "想定時間 ", el("b", {text: fmtDur(slot)}),
               el("span", {text:`（${fmtMin(ev.start_min)}〜${fmtMin(ev.end_min)} の中で調整）`})),
         ev.description ? el("p", {class:"desc", text: ev.description}) : null,
       ),
@@ -765,7 +766,7 @@ async function renderEvent(id){
       el("p", {class:"hint", text: S.tool === "c"
         ? "コメントをつけたいマスをタップしてください。"
         : dayMode ? "日にちごとにマスをタップしてください。ドラッグでまとめて塗れます。入力は自動で保存されます。"
-        : "日付をタップするとその日をまとめて入力できます。ドラッグでまとめて塗ることもでき、入力は自動で保存されます。"}),
+        : `表の上の日付（${dayShort(ev.dates[0])} など）を押すと、その日の時間すべてに選んだ記号がまとめて入ります（消しゴムなら、その日の入力をまとめて消せます）。マスはドラッグでまとめて塗ることもできます。入力は自動で保存されます。`}),
       grid,
       el("div", {class:"done"},
         el("button", {class:"btn block", type:"button", text:"✓ 登録を完了して次の人へ", onclick: finishMe}),
@@ -1018,6 +1019,7 @@ async function renderEvent(id){
   function blockComments(r, d, m, len){
     return windowMins(m, len).map(x => r.comments[keyOf(d, x)]).filter(Boolean);
   }
+  function dayShort(d){ const dt = parseYmd(d); return `${dt.getMonth()+1}/${dt.getDate()}`; }
   function rangeLabel(d, m, len){
     const dt = parseYmd(d);
     const day = `${dt.getMonth()+1}/${dt.getDate()}（${WD[dt.getDay()]}）`;
@@ -1025,7 +1027,7 @@ async function renderEvent(id){
   }
   const inFocus = (d, m) => S.focus && S.focus.d === d && m >= S.focus.m && m < S.focus.m + S.focus.len;
 
-  // 指定の MTG 時間で、都合のいい枠を上から3つ（開始は30分刻み）
+  // 指定の 想定時間で、都合のいい枠を上から3つ（開始は30分刻み）
   function bestWindows(list, len){
     const out = [];
     for(const d of ev.dates){
@@ -1075,8 +1077,8 @@ async function renderEvent(id){
     g.addEventListener("pointerover", e => { if(e.pointerType === "mouse") pick(e); });
     g.addEventListener("click", pick);
 
-    // 最適な時間：MTG 時間を選ぶと、その長さで都合のいい枠を出す
-    const durSel = el("select", {class:"bestdur", "aria-label":"MTG時間"});
+    // 最適な時間：想定時間を選ぶと、その長さで都合のいい枠を出す
+    const durSel = el("select", {class:"bestdur", "aria-label":"想定時間"});
     for(let m = SLOT; m <= rangeLen; m += SLOT){
       durSel.append(el("option", {value:m, text: fmtDur(m) + (m === slot ? "（設定）" : "")}));
     }
