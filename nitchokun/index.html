@@ -28,6 +28,7 @@
     --head:"Dela Gothic One","Zen Kaku Gothic New",sans-serif;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  [hidden]{display:none !important}
   html,body{margin:0;padding:0}
   body{
     font-family:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Meiryo",sans-serif;
@@ -115,6 +116,7 @@
   .evhead .desc{color:var(--muted);white-space:pre-wrap;word-break:break-word;margin:0}
   .two{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start}
   @media (max-width:960px){.two{grid-template-columns:1fr}}
+  .two > *{min-width:0}
   .card h2{font-family:var(--head);font-weight:400;font-size:22px;margin:0 0 12px;letter-spacing:.04em}
   .card h2 small{font-family:"Zen Kaku Gothic New",sans-serif;font-weight:700;font-size:14px;color:var(--muted);margin-left:6px}
   .note{color:var(--muted);font-size:14px;margin:0 0 14px;line-height:1.6}
@@ -164,6 +166,14 @@
   #mineGrid .cell{touch-action:none;cursor:pointer}
   #mineGrid .cell:hover{outline:2px solid var(--enji-mid);outline-offset:-2px}
   .sgrid.dense .cell{height:24px;font-size:13px;border-radius:7px}
+  #mineGrid .dh[data-date]{cursor:pointer;border-radius:10px}
+  #mineGrid .dh[data-date]:hover{background:var(--enji-soft)}
+  .daygrid{gap:6px 10px;width:100%}
+  .daygrid .dl{display:flex;align-items:center;justify-content:flex-end;gap:2px;font-size:13px;color:var(--muted);white-space:nowrap}
+  .daygrid .dl b{font-size:17px;color:var(--text)}
+  .daygrid .dl.sun, .daygrid .dl.sun b{color:var(--enji)}
+  .daygrid .dl.sat, .daygrid .dl.sat b{color:var(--sat)}
+  .daygrid .cell{height:44px;font-size:20px}
   .cell.m-o{background:var(--enji);color:#fff}
   .cell.m-t{background:var(--tri);color:var(--enji-dark)}
   .cell.m-x{background:var(--batsu);color:#6f5b61}
@@ -462,7 +472,13 @@ function renderCreate(){
   const next = el("button", {type:"button", "aria-label":"次の月", text:"›"});
   const cal = el("div", {class:"cal"});
   const durSel = el("select", {"aria-label":"MTG時間", id:"dur"});
-  for(let m = SLOT; m <= DAY; m += SLOT) durSel.append(el("option", {value:m, text:fmtDur(m)}));
+  durSel.append(
+    el("optgroup", {label:"日にち単位"}, el("option", {value:DAY, text:"一日（日にちで調整）"})),
+    el("optgroup", {label:"時間単位"}, (() => {
+      const opts = []; for(let m = SLOT; m < DAY; m += SLOT) opts.push(el("option", {value:m, text:fmtDur(m)}));
+      return opts;
+    })()),
+  );
   durSel.value = 60;
   const startSel = el("select", {"aria-label":"開始時刻"});
   const endSel = el("select", {"aria-label":"終了時刻"});
@@ -484,7 +500,7 @@ function renderCreate(){
       el("div", {class:"calhead"}, countLbl, el("div", {class:"monthnav"}, prev, monthLbl, next)),
       cal,
       el("div", {class:"timerow"}, el("label", {class:"fld", for:"dur", text:"MTG時間"}), durSel),
-      el("div", {class:"timerow"}, el("span", {class:"fld", text:"時間帯"}), startSel, el("span", {text:"〜"}), endSel),
+      el("div", {class:"timerow", id:"rangeRow"}, el("span", {class:"fld", text:"時間帯"}), startSel, el("span", {text:"〜"}), endSel),
       rangeHint,
       submit, err,
     ),
@@ -561,10 +577,11 @@ function renderCreate(){
       startSel.value = lastPartial.start; endSel.value = lastPartial.end;
     }
     startSel.disabled = endSel.disabled = full;
+    $("#rangeRow").hidden = full;
     const prob = rangeProblem();
     rangeHint.classList.toggle("bad", !!prob);
     if(prob) rangeHint.textContent = prob;
-    else if(full) rangeHint.textContent = "丸一日のMTGを調整します（各自は30分ごとに回答）";
+    else if(full) rangeHint.textContent = "候補日ごとに、一日まるごと 〇 △ × で回答してもらいます";
     else rangeHint.textContent = `${fmtMin(+startSel.value)}〜${fmtMin(+endSel.value)} の中で、${fmtDur(dur)}のMTGを調整します（各自は30分ごとに回答）`;
   }
   durSel.onchange = startSel.onchange = endSel.onchange = updateRange;
@@ -625,11 +642,14 @@ async function renderEvent(id){
     saving: null,
   };
   const slot = ev.slot_min || SLOT;   // 作成時に決めた MTG 時間
-  const cellMins = []; for(let m = ev.start_min; m < ev.end_min; m += SLOT) cellMins.push(m);
+  // 一日（日にち単位）のイベントは、1日＝1マス（キーは「日付|0」）
+  const dayMode = slot === DAY;
+  const unit = dayMode ? DAY : SLOT;
+  const cellMins = []; for(let m = ev.start_min; m < ev.end_min; m += unit) cellMins.push(m);
   const rangeLen = ev.end_min - ev.start_min;
-  const windowMins = (m, len) => { const out = []; for(let x = m; x < m + len; x += SLOT) out.push(x); return out; };
+  const windowMins = (m, len) => { const out = []; for(let x = m; x < m + len; x += unit) out.push(x); return out; };
   S.bestDur = Math.min(slot, rangeLen);
-  S.focus = { d: ev.dates[0], m: ev.start_min, len: SLOT };
+  S.focus = { d: ev.dates[0], m: ev.start_min, len: unit };
   document.title = `${ev.title} | 日調くん`;
 
   /* --- 骨組み --- */
@@ -641,8 +661,10 @@ async function renderEvent(id){
       el("div", {},
         el("a", {class:"brand", href:"#/", title:"新しいイベントを作る"}, el("span", {class:"logo sm", text:"日"}), "日調くん"),
         el("h1", {text: ev.title}),
-        el("p", {class:"durtag"}, "MTG時間 ", el("b", {text: fmtDur(slot)}),
-          slot === DAY ? null : el("span", {text:`（${fmtMin(ev.start_min)}〜${fmtMin(ev.end_min)} の中で調整）`})),
+        dayMode
+          ? el("p", {class:"durtag"}, "日程 ", el("b", {text:"一日単位"}), el("span", {text:"（日にちごとに 〇△× で調整）"}))
+          : el("p", {class:"durtag"}, "MTG時間 ", el("b", {text: fmtDur(slot)}),
+              el("span", {text:`（${fmtMin(ev.start_min)}〜${fmtMin(ev.end_min)} の中で調整）`})),
         ev.description ? el("p", {class:"desc", text: ev.description}) : null,
       ),
       share,
@@ -680,12 +702,26 @@ async function renderEvent(id){
 
   /* --- グリッド共通 --- */
   function buildGrid(id, cellFn){
+    if(dayMode){
+      const g = el("div", {class:"sgrid daygrid", id});
+      g.style.gridTemplateColumns = "max-content minmax(0, 260px)";
+      for(const d of ev.dates){
+        const dt = parseYmd(d), w = dt.getDay();
+        g.append(el("div", {class:"dl" + (w===0?" sun":w===6?" sat":""), "data-date": d},
+          el("b", {text:`${dt.getMonth()+1}/${dt.getDate()}`}), `（${WD[w]}）`));
+        const key = keyOf(d, cellMins[0]);
+        const c = el("div", {class:"cell", "data-key":key});
+        cellFn(c, key);
+        g.append(c);
+      }
+      return el("div", {class:"gridwrap"}, g);
+    }
     const g = el("div", {class:"sgrid" + (cellMins.length > 24 ? " dense" : ""), id});
     g.style.gridTemplateColumns = `44px repeat(${ev.dates.length}, minmax(58px, 72px))`;
     g.append(el("div", {class:"corner"}));
     for(const d of ev.dates){
       const dt = parseYmd(d), w = dt.getDay();
-      g.append(el("div", {class:"dh"},
+      g.append(el("div", {class:"dh", "data-date": d},
         el("div", {class:"w" + (w===0?" sun":w===6?" sat":""), text:WD[w]}),
         el("div", {class:"d", text:`${dt.getMonth()+1}/${dt.getDate()}`}),
       ));
@@ -728,7 +764,8 @@ async function renderEvent(id){
       tools,
       el("p", {class:"hint", text: S.tool === "c"
         ? "コメントをつけたいマスをタップしてください。"
-        : "ドラッグでまとめて塗れます。入力は自動で保存されます。"}),
+        : dayMode ? "日にちごとにマスをタップしてください。ドラッグでまとめて塗れます。入力は自動で保存されます。"
+        : "日付をタップするとその日をまとめて入力できます。ドラッグでまとめて塗ることもでき、入力は自動で保存されます。"}),
       grid,
       el("div", {class:"done"},
         el("button", {class:"btn block", type:"button", text:"✓ 登録を完了して次の人へ", onclick: finishMe}),
@@ -837,6 +874,8 @@ async function renderEvent(id){
   let rafPending = false;
   function bindPaint(grid){
     grid.addEventListener("pointerdown", e => {
+      const h = !dayMode && e.target.closest(".dh[data-date]");
+      if(h){ e.preventDefault(); fillDay(h.dataset.date); return; }
       const c = e.target.closest(".cell"); if(!c) return;
       e.preventDefault();
       if(S.tool === "c"){ editComment(c.dataset.key); return; }
@@ -875,6 +914,18 @@ async function renderEvent(id){
     document.removeEventListener("pointercancel", onPaintEnd);
   });
 
+  // 日付の見出しを押したら、その日の全マスに今の記号を入れる（消しゴムなら全部消す）
+  function fillDay(d){
+    if(S.tool === "c") return;
+    let touched = false;
+    for(const m of cellMins){
+      const key = keyOf(d, m), cur = S.me.answers[key];
+      if(S.tool === "e"){ if(cur){ delete S.me.answers[key]; touched = true; } }
+      else if(cur !== S.tool){ S.me.answers[key] = S.tool; touched = true; }
+      const cell = $(`#mineGrid .cell[data-key="${key}"]`); if(cell) paintMineCell(cell, key);
+    }
+    if(touched) changed();
+  }
   function applyTool(c){
     const key = c.dataset.key, cur = S.me.answers[key];
     if(S.tool === "e"){ if(!cur) return; delete S.me.answers[key]; }
@@ -888,7 +939,7 @@ async function renderEvent(id){
     const buttons = [{id:"cancel", label:"キャンセル"}, {id:"ok", label:"保存", primary:true}];
     if(cur) buttons.unshift({id:"del", label:"削除", left:true});
     const res = await ask({
-      title: slotLabel(key), text:"このマスへのコメント（例：遅れるかも、オンラインなら可）",
+      title: dayMode ? rangeLabel(key.split("|")[0], 0, DAY) : slotLabel(key), text:"このマスへのコメント（例：遅れるかも、オンラインなら可）",
       input:{ value:cur, multiline:true, maxlength:LIMIT.comment, placeholder:"コメントを入力" }, buttons,
     });
     if(res.id === "cancel") return;
@@ -970,7 +1021,7 @@ async function renderEvent(id){
   function rangeLabel(d, m, len){
     const dt = parseYmd(d);
     const day = `${dt.getMonth()+1}/${dt.getDate()}（${WD[dt.getDay()]}）`;
-    return len === DAY ? `${day}終日` : `${day}${fmtMin(m)}〜${fmtMin(m + len)}`;
+    return len === DAY ? (dayMode ? day : `${day}終日`) : `${day}${fmtMin(m)}〜${fmtMin(m + len)}`;
   }
   const inFocus = (d, m) => S.focus && S.focus.d === d && m >= S.focus.m && m < S.focus.m + S.focus.len;
 
@@ -1015,8 +1066,8 @@ async function renderEvent(id){
     const pick = e => {
       const c = e.target.closest(".cell"); if(!c) return;
       const [d, m] = c.dataset.key.split("|");
-      if(S.focus.d === d && S.focus.m === +m && S.focus.len === SLOT) return;
-      S.focus = { d, m: +m, len: SLOT };
+      if(S.focus.d === d && S.focus.m === +m && S.focus.len === unit) return;
+      S.focus = { d, m: +m, len: unit };
       g.querySelectorAll(".cell.focus").forEach(x => x.classList.remove("focus"));
       c.classList.add("focus");
       renderDetail(list);
@@ -1033,8 +1084,8 @@ async function renderEvent(id){
     durSel.onchange = () => { S.bestDur = +durSel.value; renderAll(); };
     const ranked = bestWindows(list, S.bestDur);
     const best = el("div", {class:"best"},
-      el("div", {class:"besthead"}, el("h3", {text:"最適な時間"}), durSel,
-        S.bestDur !== slot ? el("button", {class:"linkbtn", type:"button", text:"設定に戻す",
+      el("div", {class:"besthead"}, el("h3", {text: dayMode ? "都合のいい日" : "最適な時間"}), dayMode ? null : durSel,
+        !dayMode && S.bestDur !== slot ? el("button", {class:"linkbtn", type:"button", text:"設定に戻す",
           onclick: () => { S.bestDur = Math.min(slot, rangeLen); renderAll(); }}) : null),
       ranked.length
         ? el("ol", {class:"bestlist"}, ranked.map((w, i) => el("li", {},
@@ -1046,12 +1097,12 @@ async function renderEvent(id){
               el("span", {class:"when", text: rangeLabel(w.d, w.m, S.bestDur)}),
               el("span", {class:"cnt"}, el("b", {text:`〇${w.cnt.o}`}), w.cnt.t ? ` △${w.cnt.t}` : "", ` / ${n}人`),
             ))))
-        : el("p", {class:"empty", text: n ? `${fmtDur(S.bestDur)}続けて都合のいい時間はまだありません` : "まだ回答がありません"}),
+        : el("p", {class:"empty", text: !n ? "まだ回答がありません" : dayMode ? "都合のいい日はまだありません" : `${fmtDur(S.bestDur)}続けて都合のいい時間はまだありません`}),
     );
 
     allCard.replaceChildren(
       el("h2", {}, "みんなの予定", el("small", {text:`（${n}人回答）`})),
-      el("p", {class:"note", text:"色が濃いほど都合のいい人が多い時間です"}),
+      el("p", {class:"note", text: dayMode ? "色が濃いほど都合のいい人が多い日です" : "色が濃いほど都合のいい人が多い時間です"}),
       el("div", {class:"legend"}, el("span", {text:"0人"}), el("span", {class:"bar"}), el("span", {text:"全員〇"})),
       grid,
       el("div", {class:"detail", id:"detail"}),
