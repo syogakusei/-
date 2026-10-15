@@ -154,7 +154,15 @@
 
   /* 予定グリッド */
   .gridwrap{overflow-x:auto;padding:2px 2px 6px}
-  .sgrid{display:grid;gap:4px;user-select:none;width:max-content}
+  .sgrid{display:grid;gap:4px;user-select:none;width:max-content;position:relative}
+  .gev{position:absolute;pointer-events:none;z-index:2;background:rgba(116,86,190,.2);border-left:3px solid rgba(116,86,190,.7);border-radius:6px;color:#3f2f73;font-size:11px;font-weight:700;line-height:1.3;padding:2px 4px;overflow:hidden;word-break:break-all}
+  .gallday{font-size:10px;font-weight:700;background:rgba(116,86,190,.18);color:#3f2f73;border-radius:6px;padding:1px 4px;margin:3px auto 0;max-width:68px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .gcalbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px}
+  .gcalbar .gnote{font-size:12px;color:var(--muted)}
+  .gcalbar.on .gtag{font-size:13px;font-weight:700;color:#3f2f73;background:rgba(116,86,190,.14);padding:5px 10px;border-radius:999px}
+  .gadd{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;text-decoration:none;font-weight:700;font-size:13px;color:var(--enji);border:1.5px solid var(--line);background:#fff;border-radius:14px;padding:8px 12px}
+  .gadd:hover{border-color:var(--enji);background:var(--enji-soft)}
+  .detailact{margin-top:12px}
   .sgrid .corner{}
   .sgrid .dh{text-align:center;line-height:1.25;padding-bottom:6px}
   .sgrid .dh .w{font-size:13px;font-weight:700;color:var(--muted)}
@@ -187,6 +195,8 @@
   .besthead h3{font-family:var(--head);font-weight:400;font-size:18px;margin:0;letter-spacing:.04em}
   .besthead select.bestdur{width:auto;padding:8px 14px;font-weight:700;font-size:15px;border-color:var(--enji);background:#fff;color:var(--enji);cursor:pointer}
   .bestlist{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+  .bestlist li{display:flex;gap:8px;align-items:stretch;flex-direction:row-reverse}
+  .bestlist li .bestitem{flex:1;width:auto;min-width:0}
   .bestitem{width:100%;display:flex;align-items:center;gap:12px;text-align:left;border:1.5px solid var(--line);background:#fff;border-radius:14px;padding:10px 14px;font-weight:700;font-size:15px}
   .bestitem:hover{border-color:var(--enji)}
   .bestitem.on{border-color:var(--enji);background:var(--enji-soft)}
@@ -271,6 +281,9 @@
    ============================================================ */
 const SUPABASE_URL = "https://ofxdhyetbzoddofiqdmk.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_jfMQhO1fQQmB-XI4Yk3XQw_9wB4c7G8";
+// Google カレンダーの予定を重ねて表示する機能の OAuth クライアント ID（空なら機能を出さない）
+const GOOGLE_CLIENT_ID = "";
+const GCAL_SCOPE = "https://www.googleapis.com/auth/calendar.events.readonly";
 
 const SLOT = 30;
 const WD = ["日","月","火","水","木","金","土"];
@@ -767,6 +780,7 @@ async function renderEvent(id){
         ? "コメントをつけたいマスをタップしてください。"
         : dayMode ? "日にちごとにマスをタップしてください。ドラッグでまとめて塗れます。入力は自動で保存されます。"
         : `表の上の日付（${dayShort(ev.dates[0])} など）を押すと、その日の時間すべてに選んだ記号がまとめて入ります（消しゴムなら、その日の入力をまとめて消せます）。マスはドラッグでまとめて塗ることもできます。入力は自動で保存されます。`}),
+      gcalBar(),
       grid,
       el("div", {class:"done"},
         el("button", {class:"btn block", type:"button", text:"✓ 登録を完了して次の人へ", onclick: finishMe}),
@@ -774,7 +788,147 @@ async function renderEvent(id){
     );
     updateSavedLbl();
     bindPaint($("#mineGrid", mineCard));
+    drawGcal();
   }
+
+  /* --- Google カレンダーの予定を重ねて表示（この画面の中だけ。保存・共有はしない） --- */
+  const G = { client: null, token: null, events: null, loading: false };
+  function gcalBar(){
+    if(!GOOGLE_CLIENT_ID) return null;
+    if(G.events){
+      return el("div", {class:"gcalbar on"},
+        el("span", {class:"gtag", text:`📅 Googleカレンダーの予定を表示中（${G.events.length}件）`}),
+        el("button", {class:"linkbtn", type:"button", text:"更新", onclick: () => loadGcal(true)}),
+        el("button", {class:"linkbtn", type:"button", text:"非表示にする", onclick: () => { G.events = null; renderMine(); }}),
+      );
+    }
+    return el("div", {class:"gcalbar"},
+      el("button", {class:"btn ghost sm", type:"button", disabled: G.loading, text: G.loading ? "読み込み中…" : "📅 Googleカレンダーの予定を重ねて表示", onclick: () => loadGcal(false)}),
+      el("span", {class:"gnote", text:"予定はこの画面に表示するだけで、保存や共有はされません"}),
+    );
+  }
+  function loadScript(src){
+    return new Promise((res, rej) => {
+      if(document.querySelector(`script[src="${src}"]`)) return res();
+      const sc = el("script", {src, async:true}); sc.onload = res; sc.onerror = () => rej(new Error("読み込みに失敗しました"));
+      document.head.append(sc);
+    });
+  }
+  async function loadGcal(refreshOnly){
+    try{
+      if(!refreshOnly || !G.token){
+        await loadScript("https://accounts.google.com/gsi/client");
+        G.token = await new Promise((res, rej) => {
+          const client = google.accounts.oauth2.initTokenClient({
+            client_id: GOOGLE_CLIENT_ID, scope: GCAL_SCOPE,
+            callback: r => r.error ? rej(new Error(r.error)) : res(r.access_token),
+            error_callback: e => rej(new Error(e.type || "popup_closed")),
+          });
+          client.requestAccessToken({ prompt: "select_account" });
+        });
+      }
+      G.loading = true; renderMine();
+      G.events = await fetchGcal(G.token);
+    }catch(e){
+      console.warn("[日調くん] Googleカレンダー:", e.message);
+      if(!/popup_closed|access_denied/.test(e.message)) toast("Googleカレンダーを読み込めませんでした");
+      if(/401/.test(e.message)) G.token = null;
+    }finally{
+      G.loading = false;
+      if(S.me) renderMine();
+    }
+  }
+  async function fetchGcal(token){
+    const first = parseYmd(ev.dates[0]), last = parseYmd(ev.dates[ev.dates.length - 1]);
+    last.setDate(last.getDate() + 1);
+    const items = [];
+    let pageToken = "";
+    do{
+      const q = new URLSearchParams({ timeMin: first.toISOString(), timeMax: last.toISOString(), singleEvents: "true", orderBy: "startTime", maxResults: "2500" });
+      if(pageToken) q.set("pageToken", pageToken);
+      const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?${q}`, { headers: { Authorization: `Bearer ${token}` } });
+      if(!res.ok) throw new Error(`HTTP ${res.status}`);
+      const j = await res.json();
+      items.push(...(j.items || []));
+      pageToken = j.nextPageToken || "";
+    }while(pageToken);
+    return normalizeGcal(items);
+  }
+  // Google の予定を「候補日ごと・分単位」に直す（日をまたぐ予定は日ごとに分ける）
+  function normalizeGcal(items){
+    const want = new Set(ev.dates), out = [];
+    for(const it of items){
+      if(it.status === "cancelled") continue;
+      if((it.attendees || []).some(a => a.self && a.responseStatus === "declined")) continue;
+      const title = it.summary || "（予定あり）";
+      if(it.start?.date){
+        for(let dt = parseYmd(it.start.date); ymd(dt) < it.end.date; dt.setDate(dt.getDate() + 1)){
+          if(want.has(ymd(dt))) out.push({ d: ymd(dt), allDay: true, title });
+        }
+        continue;
+      }
+      const st = new Date(it.start.dateTime), en = new Date(it.end.dateTime);
+      for(let day = new Date(st.getFullYear(), st.getMonth(), st.getDate()); day < en; day.setDate(day.getDate() + 1)){
+        const d = ymd(day);
+        const next = new Date(day); next.setDate(next.getDate() + 1);
+        const s0 = Math.max(st, day), e0 = Math.min(en, next);
+        if(!want.has(d) || e0 <= s0) continue;
+        out.push({ d, allDay: false, title, s: Math.round((s0 - day) / 60000), e: Math.round((e0 - day) / 60000) });
+      }
+    }
+    return out;
+  }
+  function drawGcal(){
+    const g = $("#mineGrid", mineCard); if(!g) return;
+    g.querySelectorAll(".gev, .gallday").forEach(x => x.remove());
+    if(!G.events) return;
+    const cellOf = (d, m) => g.querySelector(`.cell[data-key="${keyOf(d, m)}"]`);
+    const block = (text, x, y, w, h) => {
+      const b = el("div", {class:"gev", text});
+      Object.assign(b.style, { left:`${x}px`, top:`${y}px`, width:`${Math.max(w, 8)}px`, height:`${Math.max(h, 12)}px` });
+      g.append(b);
+    };
+    if(dayMode){
+      for(const d of ev.dates){
+        const list = G.events.filter(x => x.d === d); if(!list.length) continue;
+        const c = cellOf(d, cellMins[0]);
+        block(list.map(x => x.allDay ? x.title : `${fmtMin(x.s)} ${x.title}`).join(" / "), c.offsetLeft, c.offsetTop, c.offsetWidth, c.offsetHeight);
+      }
+      return;
+    }
+    // 終日の予定は日付の見出しに付ける（見出しの高さが変わるので、位置の計算より先に）
+    for(const x of G.events.filter(x => x.allDay)){
+      g.querySelector(`.dh[data-date="${x.d}"]`)?.append(el("div", {class:"gallday", text: x.title, title: `終日：${x.title}`}));
+    }
+    const r0 = cellOf(ev.dates[0], cellMins[0]);
+    const r1 = cellMins.length > 1 ? cellOf(ev.dates[0], cellMins[1]) : null;
+    const pitch = r1 ? r1.offsetTop - r0.offsetTop : r0.offsetHeight + 4;
+    const y = m => r0.offsetTop + (m - ev.start_min) / SLOT * pitch;
+    for(const d of ev.dates){
+      const col = cellOf(d, cellMins[0]);
+      // 重なる予定は横に並べる
+      const list = G.events.filter(x => x.d === d && !x.allDay && x.e > ev.start_min && x.s < ev.end_min)
+        .map(x => ({ ...x, s: Math.max(x.s, ev.start_min), e: Math.min(x.e, ev.end_min) }))
+        .sort((a, b) => a.s - b.s || b.e - a.e);
+      let cluster = [], clusterEnd = -1;
+      const flush = () => {
+        const lanes = Math.max(...cluster.map(x => x.lane)) + 1;
+        const w = col.offsetWidth / lanes;
+        for(const x of cluster) block(x.title, col.offsetLeft + w * x.lane, y(x.s), w - 2, y(x.e) - y(x.s) - 3);
+        cluster = [];
+      };
+      for(const x of list){
+        if(cluster.length && x.s >= clusterEnd) flush();
+        const used = new Set(cluster.filter(c => c.e > x.s).map(c => c.lane));
+        let lane = 0; while(used.has(lane)) lane++;
+        x.lane = lane; cluster.push(x); clusterEnd = Math.max(clusterEnd, x.e);
+      }
+      if(cluster.length) flush();
+    }
+  }
+  const onResize = () => drawGcal();
+  window.addEventListener("resize", onResize);
+  cleanupFns.push(() => window.removeEventListener("resize", onResize));
 
   function paintMineCell(c, key){
     const a = S.me.answers[key];
@@ -830,6 +984,7 @@ async function renderEvent(id){
     if(S.dirty){ toast("保存に失敗しました。もう一度お試しください"); return; }
     if(S.saving) await S.saving;
     S.me = null;
+    G.events = null;
     renderMine(); renderAll();
     toast(had ? `${name} さんの予定を登録しました。次の人の名前を入力できます` : "入力をやめました");
   }
@@ -1019,6 +1174,22 @@ async function renderEvent(id){
   function blockComments(r, d, m, len){
     return windowMins(m, len).map(x => r.comments[keyOf(d, x)]).filter(Boolean);
   }
+  // Google カレンダーの予定作成画面を、日時とタイトルを入れた状態で開くリンク
+  function gcalAddUrl(d, m, len){
+    const st = parseYmd(d); st.setMinutes(m);
+    const en = new Date(st.getTime() + len * 60000);
+    const f = (dt, withTime) => `${dt.getFullYear()}${pad(dt.getMonth()+1)}${pad(dt.getDate())}` + (withTime ? `T${pad(dt.getHours())}${pad(dt.getMinutes())}00` : "");
+    const allDay = dayMode || len === DAY;
+    const q = new URLSearchParams({
+      action: "TEMPLATE",
+      text: ev.title,
+      dates: `${f(st, !allDay)}/${f(en, !allDay)}`,
+      details: (ev.description ? ev.description + "\n\n" : "") + "日調くんで調整：" + location.href,
+    });
+    try{ q.set("ctz", Intl.DateTimeFormat().resolvedOptions().timeZone); }catch{}
+    return `https://calendar.google.com/calendar/render?${q}`;
+  }
+  const gcalAddLink = (d, m, len, label) => el("a", {class:"gadd", href: gcalAddUrl(d, m, len), target:"_blank", rel:"noopener", title:"Googleカレンダーに追加", text: label});
   function dayShort(d){ const dt = parseYmd(d); return `${dt.getMonth()+1}/${dt.getDate()}`; }
   function rangeLabel(d, m, len){
     const dt = parseYmd(d);
@@ -1091,6 +1262,7 @@ async function renderEvent(id){
           onclick: () => { S.bestDur = Math.min(slot, rangeLen); renderAll(); }}) : null),
       ranked.length
         ? el("ol", {class:"bestlist"}, ranked.map((w, i) => el("li", {},
+            gcalAddLink(w.d, w.m, S.bestDur, "📅 追加"),
             el("button", {
               class:"bestitem" + (S.focus.d === w.d && S.focus.m === w.m && S.focus.len === S.bestDur ? " on" : ""), type:"button",
               onclick: () => { S.focus = { d: w.d, m: w.m, len: S.bestDur }; renderAll(); },
@@ -1129,6 +1301,7 @@ async function renderEvent(id){
         cms.length ? el("span", {class:"cmt", text: cms.join(" / ")}) : null,
       );
     })));
+    box.append(el("div", {class:"detailact"}, gcalAddLink(d, m, len, "📅 この日時をGoogleカレンダーに追加")));
   }
 
   /* --- 他の人の回答を定期的に取り込む --- */
